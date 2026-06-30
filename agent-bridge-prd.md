@@ -1,9 +1,9 @@
 # Agent Bridge — Product Requirements Document
 
-**Status:** Draft v1
+**Status:** Draft v1.1 (expanded feature set §13 added; M3–M5b implemented)
 **Owner:** K (Cognifer Labs)
 **Last updated:** June 2026
-**Companion doc:** `agent-bridge-plan.md` (architecture & build sequence)
+**Companion doc:** `agent-bridge-plan.md` (architecture & build sequence). Implementation status & remaining human steps: `tasks/operator-todo.md`.
 
 ---
 
@@ -163,3 +163,55 @@ The cost is friction and lock-in-by-inertia: people stay on a suboptimal agent f
 ## 12. Appendix — what makes this defensible
 
 The portability of skills (SKILL.md) and repo context (AGENTS.md) is *already* solved at the format level, and MCP projection is a known pattern. So Agent Bridge's durable advantage is not "it moves config" — it's the three things nothing else does together: a single runtime shell over all three agents, an honest context-handoff on switch, and a **cross-agent coder profile produced by one shared analysis skill** that is deliberately high-dimensional so it feels unique to each person, then matched against each platform's features to tell that specific developer which tools and config fit *them*. The Profile Skill also dogfoods the product's own portability claim — it's the first skill the Projection Engine deploys everywhere.
+
+---
+
+## 13. Expanded feature set (v1.1+ unless tagged v1)
+
+These extend the four subsystems above without changing the moat. Each is tagged
+with target release; **v1** items are in the committed scope, later tags are
+sequenced after the cross-agent profile proves valuable. They continue the FR
+numbering and inherit every NFR (local-first, honesty-by-design, swappable
+projectors).
+
+### 13.1 Projection & canonical store
+- **FR24 (v1). Config preview / dry-run diff.** Before writing any native file, show a diff of the current on-disk file vs the projected output, per target — never a silent overwrite. Builds directly on the bidirectional parse+project engine (M3/M4).
+- **FR25 (v1). Auto-reproject on change.** Watch the canonical store; regenerate the affected native files when a canonical entity changes, gated by the drift guard (FR11) so out-of-band edits are flagged, not clobbered.
+- **FR26 (v1). Import wizard.** On first run, ingest existing native configs (`.mcp.json` / `config.toml` / `.cursor/mcp.json` / `CLAUDE.md` / `.cursorrules`) into the canonical store using the same parsers that prove round-trip identity.
+- **FR27 (v1). Secret-binding manager.** One place that lists every `SecretRef` across all servers and shows whether each resolves (env var present / keychain entry exists), so a projected `${VAR}` is never a dead reference at runtime.
+- **FR28 (v1.1). Config scopes.** Global vs per-project canonical entities, with per-project values layered over global defaults.
+- **FR29 (v1.1). Canonical export / backup.** Export the whole store as a single portable bundle and re-import it on another machine.
+
+### 13.2 Runtime shell
+- **FR30 (v1). Command palette.** Keyboard-first: switch agent, project config, run a profile, start a handoff — one surface, no mouse.
+- **FR31 (v1). Permission policy presets per project.** Named presets (default / acceptEdits / bypass) with the destructive-mode guard (FR4) always honored.
+- **FR32 (v1). Local "doctor" diagnostics.** A check that reports Node version, bundled-adapter health, key presence, and keychain reachability — printed locally, never uploaded.
+- **FR33 (v1.1). Multi-session workspace.** Run more than one agent session concurrently, each its own thread, switching focus without tearing a session down.
+- **FR34 (v1.1). Side-by-side compare ("best-of-n across agents").** Send one prompt to two agents and view their responses/diffs in parallel.
+- **FR35 (v1.1). Local transcript export.** Export a session for the user's own records, honoring the no-upload constraint.
+
+### 13.3 Handoff
+- **FR36 (v1). Pre-switch carry diff.** Show exactly what will and won't carry (cwd, files, tasks, decisions, summary, active MCP/skills) before the switch commits — the honesty surface for FR5/FR15.
+- **FR37 (v1.1). Handoff library.** Save, name, and replay `ContextSnapshot`s; reopen a brief later or hand the same brief to a different agent.
+- **FR38 (v1.1). Summarizer choice.** Outgoing-agent digest vs a dedicated cheap summarizer, user-selectable (resolves open question §11, cost vs fidelity).
+- **FR39 (v1.2). Round-trip handoff.** Returning to the original agent carries a "what changed while you were away" back-brief.
+
+### 13.4 Profile & Gap-Filling
+- **FR40 (v1). Deep-scan option.** Trade speed/token cost for a richer, more distinctive profile (resolves open question §11); default window stays cheap.
+- **FR41 (v1). Dismiss / curate friction patterns.** User can dismiss a flagged pattern; dismissals feed the trust metric (high dismissal = low-quality analysis to fix) and suppress repeats.
+- **FR42 (v1). Generated-skill review queue.** Every generated gap-filler is shown as a reviewable diff with its motivating friction pattern; nothing third-party is auto-installed (FR22b).
+- **FR43 (v1.1). Profile trends over time.** Re-run scans and chart how task mix / friction / efficiency evolve.
+- **FR44 (v1.1). Gap-Filling marketplace index.** A curated, versioned index of known-good skills keyed to capability gaps, source shown before install.
+- **FR45 (v2, deferred). Comparative profiles (opt-in, aggregate-only).** "Developers with your task-mix use these skills you're missing" — a recommendation layer, never surveillance; opt-in and aggregate by hard rule.
+- **FR46 (v2, deferred). Skill-authorship matching SDK.** Third parties publish skills declaring the `friction_point` / `task` they address, matched against measured profiles (supply side of FR44).
+
+### 13.5 Auth, packaging & onboarding
+- **FR47 (v1). Auth status panel.** Live per-agent connected / needs-login / error, with one-click open-native-login (extends FR23).
+- **FR48 (v1). Onboarding wizard.** Detect installed agents, import configs (FR26), bind secrets (FR27), run the first profile.
+- **FR49 (v1.1). Adapter version management.** Show bundled adapter versions, warn on drift, allow pin/update.
+- **FR50 (v1 macOS / v1.1 others). Signed cross-platform packaging.** Notarized macOS, signed Windows, Linux AppImage/deb.
+
+### 13.6 Success-metric additions
+- **Projection trust:** rate of dry-run diffs reviewed before write (proxy for "the app isn't silently clobbering").
+- **Gap-Filling adoption:** % of recommended/generated skills the user actually installs after reviewing the diff.
+- **Secret hygiene:** zero generated configs containing a literal token (continuously asserted by the no-inline test, FR12).
