@@ -9,9 +9,15 @@
 //! Continuity Report build on these in M5c. Everything here is pure and
 //! local-first: only validated aggregate JSON flows in, never raw transcripts.
 
+pub mod continuity;
+pub mod gapfill;
+pub mod merge;
 pub mod platform;
 pub mod schema;
 
+pub use continuity::{continuity_report, ContinuityReport};
+pub use gapfill::{gap_fills, Equivalence, GapFill, Resolution};
+pub use merge::{merge, AgentToolUsage, AgentWeight, MergedProfile, MergedSignatures};
 pub use platform::{
     feature_catalog, has_encodable_habit, recommend, PlatformFeature, Recommendation,
 };

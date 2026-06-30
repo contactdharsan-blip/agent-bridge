@@ -2622,6 +2622,7 @@ name = "profile"
 version = "0.1.0"
 dependencies = [
  "canonical",
+ "projection",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

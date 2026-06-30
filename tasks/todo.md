@@ -9,9 +9,9 @@ Discipline (plan §6b): pure crates are 🟢 — write the test first, run it fo
 - [x] **Setup** — feature branch, task files, golden-config fixtures dir.
 - [x] **M3 🟢 — Projection Engine v1 (MCP).** DONE @ `581d5f4`. canonical + projection crates; bidirectional projectors; round-trip identity; Cursor ceiling; no inlined secrets. 18 tests.
 - [x] **M4 🟢 — Skills + AGENTS.md + instructions projection.** DONE. instructions (3 targets, equivalent-not-identical flag baked in), skill placement planner + verbatim copy, AGENTS.md pass-through. 26 projection tests total.
-- [ ] **M5 🟡 — Handoff Bridge.** `handoff` crate: `ContextSnapshot` capture (deterministic fields 🟢 + brief format 🟡) + re-injection as incoming agent's opening turn. Honest "carrying a brief, not a session" labeling (FR15). Table tests.
-- [ ] **M5b 🟡 — Profile Skill v1 (Claude first).** Authored `SKILL.md` + script emitting strict `CoderProfile` JSON. `profile` crate: strict schema + boundary validator (reject non-conforming). Platform-feature matching map. Emit JSON Schema artifact.
-- [ ] **M5c 🟡 — Cross-agent profile + Gap-Filling + Continuity Report.** Confidence-weighted merge (table-driven tests — silent-wrong failure mode). Gap-Filling Engine (curated skill index + generator; "equivalent" vs "approximation"). Workflow Continuity Report (4 sections).
+- [x] **M5 🟡 — Handoff Bridge.** DONE @ `df03526`. handoff crate; deterministic brief; honest framing. 5 tests.
+- [x] **M5b 🟡 — Profile Skill v1.** DONE @ `947e1ab`. strict schema + boundary validator + matching map; SKILL.md + JSON Schema + gather script. 13 tests.
+- [x] **M5c 🟡 — Cross-agent profile + Gap-Filling + Continuity.** DONE. Confidence-weighted merge (hand-computed table test), Gap-Filling Engine (equivalent/approximation), 4-section Continuity Report. 28 profile tests total.
 - [ ] **M6 🔴 — Cursor as third agent.** Registry config entry (projector already supports Cursor from M3). Document the un-verifiable-offline adapter caveat.
 - [ ] **M7 🟢/🟡 — Polish.** Drift detection (hand-edit flagging), per-agent auth status, keychain secret storage (🟡, per-OS), onboarding/docs, wire Tauri commands for projection/profile.
 
