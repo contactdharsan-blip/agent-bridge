@@ -11,6 +11,11 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 acp-host = { path = "../crates/acp-host" }
+canonical = { path = "../crates/canonical" }
+projection = { path = "../crates/projection" }
+handoff = { path = "../crates/handoff" }
+profile = { path = "../crates/profile" }
+secrets = { path = "../crates/secrets" }
 tauri = { version = "2", features = [] }
 tokio = { workspace = true }
 serde = { workspace = true }

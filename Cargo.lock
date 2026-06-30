@@ -27,6 +27,11 @@ name = "agent-bridge"
 version = "0.1.0"
 dependencies = [
  "acp-host",
+ "canonical",
+ "handoff",
+ "profile",
+ "projection",
+ "secrets",
  "serde",
  "serde_json",
  "tauri",
@@ -2934,6 +2939,7 @@ dependencies = [
  "canonical",
  "keyring",
  "projection",
+ "serde",
  "thiserror 2.0.18",
 ]
 

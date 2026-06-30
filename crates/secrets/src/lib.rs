@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use canonical::{ConfigValue, McpServer, McpTransport, SecretRef};
+use serde::{Deserialize, Serialize};
 
 /// Errors from a secret store.
 #[derive(Debug, thiserror::Error)]
@@ -117,7 +118,8 @@ impl SecretStore for KeyringStore {
 }
 
 /// One unresolved/resolved secret binding, for the binding-manager UI (FR27).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SecretBinding {
     /// The env-var name the projected config references.
     pub env_name: String,
