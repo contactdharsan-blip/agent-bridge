@@ -18,8 +18,15 @@
 use canonical::{ConfigValue, McpServer, SecretRef};
 use serde::{Deserialize, Serialize};
 
+mod files;
+mod instructions;
 mod json_mcp;
+mod skills;
 mod toml_mcp;
+
+pub use files::{project_agents_md, RepoFileArtifact};
+pub use instructions::{instructions_path, project_instructions, InstructionArtifact};
+pub use skills::{default_skills_root, place_skill, plan_skill_placement, SkillPlacement};
 
 /// Cursor's practical MCP tool ceiling. Beyond this, tools are silently dropped
 /// by Cursor, so we warn first (plan §2, PRD FR10).

@@ -6,9 +6,9 @@ Discipline (plan §6b): pure crates are 🟢 — write the test first, run it fo
 
 ## Prioritized milestones
 
-- [ ] **Setup** — feature branch, task files, golden-config fixtures dir.
-- [ ] **M3 🟢 — Projection Engine v1 (MCP).** `canonical` crate (single-source-of-truth model, secrets-as-references) + `projection` crate (Claude JSON / Codex TOML / Cursor JSON parse+project). Round-trip identity test (`parse(project(parse(x))) == parse(x)`) against golden fixtures. Cursor ~40-tool ceiling warning (FR10). Secrets never inlined (FR12).
-- [ ] **M4 🟢 — Skills + AGENTS.md + instructions projection.** Skill placement (copy/symlink targets per agent), AGENTS.md pass-through, one canonical instructions doc → CLAUDE.md / Codex / `.cursorrules`, labeled "equivalent, not identical" (FR9). Snapshot tests.
+- [x] **Setup** — feature branch, task files, golden-config fixtures dir.
+- [x] **M3 🟢 — Projection Engine v1 (MCP).** DONE @ `581d5f4`. canonical + projection crates; bidirectional projectors; round-trip identity; Cursor ceiling; no inlined secrets. 18 tests.
+- [x] **M4 🟢 — Skills + AGENTS.md + instructions projection.** DONE. instructions (3 targets, equivalent-not-identical flag baked in), skill placement planner + verbatim copy, AGENTS.md pass-through. 26 projection tests total.
 - [ ] **M5 🟡 — Handoff Bridge.** `handoff` crate: `ContextSnapshot` capture (deterministic fields 🟢 + brief format 🟡) + re-injection as incoming agent's opening turn. Honest "carrying a brief, not a session" labeling (FR15). Table tests.
 - [ ] **M5b 🟡 — Profile Skill v1 (Claude first).** Authored `SKILL.md` + script emitting strict `CoderProfile` JSON. `profile` crate: strict schema + boundary validator (reject non-conforming). Platform-feature matching map. Emit JSON Schema artifact.
 - [ ] **M5c 🟡 — Cross-agent profile + Gap-Filling + Continuity Report.** Confidence-weighted merge (table-driven tests — silent-wrong failure mode). Gap-Filling Engine (curated skill index + generator; "equivalent" vs "approximation"). Workflow Continuity Report (4 sections).
