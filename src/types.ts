@@ -5,11 +5,15 @@
 export type SessionId = string;
 export type Decision = "accept" | "reject";
 
+/** First-class auth state for the per-agent status panel. */
+export type AuthStatus = "connected" | "needsLogin" | "error";
+
 export interface AgentInfo {
   id: string;
   displayName: string;
   authEnv: string;
   authPresent: boolean;
+  authStatus: AuthStatus;
 }
 
 /** A stop reason is a camelCase tag, or `{ other: "..." }` for unknown ones. */

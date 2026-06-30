@@ -18,12 +18,14 @@
 use canonical::{ConfigValue, McpServer, SecretRef};
 use serde::{Deserialize, Serialize};
 
+mod drift;
 mod files;
 mod instructions;
 mod json_mcp;
 mod skills;
 mod toml_mcp;
 
+pub use drift::{detect_mcp_drift, DriftStatus};
 pub use files::{project_agents_md, RepoFileArtifact};
 pub use instructions::{instructions_path, project_instructions, InstructionArtifact};
 pub use skills::{default_skills_root, place_skill, plan_skill_placement, SkillPlacement};

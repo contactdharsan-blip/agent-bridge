@@ -14,6 +14,20 @@ pub const CODEX: &str = "codex";
 /// Stable id for the Cursor adapter (M6 — the weakest ACP leg, plan §7).
 pub const CURSOR: &str = "cursor";
 
+/// First-class auth state for the per-agent status panel (PRD FR23/FR47).
+/// `Error` requires a live probe, so it is set by the runtime, not derivable
+/// from env presence alone; the registry reports `Connected` / `NeedsLogin`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AuthStatus {
+    /// A credential is present (BYO key in env / keychain).
+    Connected,
+    /// No credential found — the agent needs its native login.
+    NeedsLogin,
+    /// A live check failed (set by the runtime after a failed handshake).
+    Error,
+}
+
 /// A user-facing description of a selectable agent (for the picker UI).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,6 +40,29 @@ pub struct AgentInfo {
     pub auth_env: String,
     /// Whether that env var is currently set (a cheap auth-status hint).
     pub auth_present: bool,
+    /// First-class auth status derived from credential presence.
+    pub auth_status: AuthStatus,
+}
+
+/// Map credential presence to a (non-error) auth status.
+fn status_for(present: bool) -> AuthStatus {
+    if present {
+        AuthStatus::Connected
+    } else {
+        AuthStatus::NeedsLogin
+    }
+}
+
+/// Build an [`AgentInfo`] for an agent, reading credential presence from `env`.
+fn agent_info(id: &str, display_name: &str, auth_env: &str) -> AgentInfo {
+    let auth_present = std::env::var(auth_env).is_ok();
+    AgentInfo {
+        id: id.to_string(),
+        display_name: display_name.to_string(),
+        auth_env: auth_env.to_string(),
+        auth_present,
+        auth_status: status_for(auth_present),
+    }
 }
 
 /// Collect `(name, value)` pairs for the given env var names that are actually set.
@@ -89,27 +126,12 @@ pub fn adapter_for(agent_id: &str) -> Option<AdapterSpec> {
     }
 }
 
-/// The set of agents the app knows how to launch, with live auth-presence hints.
+/// The set of agents the app knows how to launch, with live auth-status hints.
 pub fn known_agents() -> Vec<AgentInfo> {
     vec![
-        AgentInfo {
-            id: CLAUDE.to_string(),
-            display_name: "Claude Code".to_string(),
-            auth_env: "ANTHROPIC_API_KEY".to_string(),
-            auth_present: std::env::var("ANTHROPIC_API_KEY").is_ok(),
-        },
-        AgentInfo {
-            id: CODEX.to_string(),
-            display_name: "Codex".to_string(),
-            auth_env: "OPENAI_API_KEY".to_string(),
-            auth_present: std::env::var("OPENAI_API_KEY").is_ok(),
-        },
-        AgentInfo {
-            id: CURSOR.to_string(),
-            display_name: "Cursor".to_string(),
-            auth_env: "CURSOR_API_KEY".to_string(),
-            auth_present: std::env::var("CURSOR_API_KEY").is_ok(),
-        },
+        agent_info(CLAUDE, "Claude Code", "ANTHROPIC_API_KEY"),
+        agent_info(CODEX, "Codex", "OPENAI_API_KEY"),
+        agent_info(CURSOR, "Cursor", "CURSOR_API_KEY"),
     ]
 }
 
@@ -153,5 +175,13 @@ mod tests {
         assert!(ids.contains(&CLAUDE.to_string()));
         assert!(ids.contains(&CODEX.to_string()));
         assert!(ids.contains(&CURSOR.to_string()));
+    }
+
+    #[test]
+    fn auth_status_is_consistent_with_presence() {
+        for a in known_agents() {
+            let expected = if a.auth_present { AuthStatus::Connected } else { AuthStatus::NeedsLogin };
+            assert_eq!(a.auth_status, expected, "{} status must track its key presence", a.id);
+        }
     }
 }
