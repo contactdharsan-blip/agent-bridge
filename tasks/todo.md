@@ -12,8 +12,13 @@ Discipline (plan §6b): pure crates are 🟢 — write the test first, run it fo
 - [x] **M5 🟡 — Handoff Bridge.** DONE @ `df03526`. handoff crate; deterministic brief; honest framing. 5 tests.
 - [x] **M5b 🟡 — Profile Skill v1.** DONE @ `947e1ab`. strict schema + boundary validator + matching map; SKILL.md + JSON Schema + gather script. 13 tests.
 - [x] **M5c 🟡 — Cross-agent profile + Gap-Filling + Continuity.** DONE. Confidence-weighted merge (hand-computed table test), Gap-Filling Engine (equivalent/approximation), 4-section Continuity Report. 28 profile tests total.
-- [ ] **M6 🔴 — Cursor as third agent.** Registry config entry (projector already supports Cursor from M3). Document the un-verifiable-offline adapter caveat.
-- [ ] **M7 🟢/🟡 — Polish.** Drift detection (hand-edit flagging), per-agent auth status, keychain secret storage (🟡, per-OS), onboarding/docs, wire Tauri commands for projection/profile.
+- [x] **M6 🔴 — Cursor as third agent.** DONE @ `fef0c36`. Registry entry (operator-overridable command); UI agent-agnostic so Cursor appears free; skip-guarded gate added.
+- [x] **M7 🟢/🟡 — Polish.** DONE. Drift detection (`0e1b6aa`), per-agent AuthStatus (`0e1b6aa`), keychain secrets + spawn resolution + security test, real macOS keychain verified (`01b2591`), Tauri IPC wiring for all engines + typed `engines.ts` (`f1badf2`), docs (this commit).
+
+## All milestones M3–M7 complete. Remaining = UI panels (next milestone) + operator tasks (`operator-todo.md`).
+
+### Next surface (not in M1–M7 scope)
+- React UI panels consuming the wired engine commands: config preview/diff, profile dashboard, continuity report, secret-binding manager. The Rust IPC + typed `engines.ts` contract exist and typecheck; the views are the next milestone.
 
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.

@@ -2,39 +2,51 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: M1+M2 implemented (vertical slice)
+## Project status: M1–M7 implemented (all milestones)
 
 The two source-of-truth documents remain binding architecture:
 
-- `agent-bridge-prd.md` — product requirements (what to build, for whom, success metrics).
+- `agent-bridge-prd.md` — product requirements (what to build, for whom, success metrics). §13 is the expanded feature set (FR24–FR50).
 - `agent-bridge-plan.md` — architecture, the two-engine model, milestones, and the vibecoding execution playbook. **Read §0, §1, §6, and §6b before writing any code.**
+- `tasks/todo.md` (engineering backlog) and `tasks/operator-todo.md` (human-only steps: secrets, signing, product decisions).
 
-What exists now (M1: one agent end-to-end; M2: Codex as a config entry):
+What exists now — the 🔴 runtime spine plus the 🟢/🟡 pure engines that are the moat:
 
-- `crates/acp-host/` — 🔴 the ACP transport core, frozen behind the narrow `AcpHost` trait + `AgentEvent` model in `contract.rs`. Built on Zed's `agent-client-protocol` crate (pinned `=1.0.1`). Adapters live in `registry.rs` (Claude/Codex via `npx`). Fully tested offline (unit + a real-subprocess transport test against `src/bin/fake_agent.rs`).
-- `src-tauri/` — Tauri v2 app crate; thin IPC glue (`commands.rs`) bridging the host's event channel to a JS `Channel`.
-- `src/` — React + TypeScript frontend; one agent-agnostic UI (zero per-agent branches).
+- `crates/acp-host/` — 🔴 the ACP transport core, frozen behind the narrow `AcpHost` trait + `AgentEvent` model in `contract.rs`. Built on Zed's `agent-client-protocol` crate (pinned `=1.0.1`). Adapters in `registry.rs` (Claude/Codex via `npx`; Cursor via `cursor-agent`, overridable with `CURSOR_ACP_COMMAND`). Per-agent `AuthStatus`. Tested offline (unit + real-subprocess transport).
+- `crates/canonical/` — 🟢 the single-source-of-truth model. Secrets are *references* (`SecretRef`), never literals.
+- `crates/projection/` — 🟢 the Projection Engine: bidirectional MCP projectors (Claude/Cursor JSON, Codex TOML), instructions ("equivalent, not identical"), skill placement, AGENTS.md pass-through, Cursor 40-tool ceiling, and drift detection. Round-trip identity tests against golden fixtures.
+- `crates/handoff/` — 🟡 the Handoff Bridge: `ContextSnapshot` → an honest "reconstructed brief, not a continued session" opening turn. Deterministic.
+- `crates/profile/` — 🟡 the cross-agent moat: strict `CoderProfile` schema + boundary validator, platform-feature matching, confidence-weighted merge (hand-computed table test), Gap-Filling Engine (equivalent/approximation), Workflow Continuity Report.
+- `crates/secrets/` — 🟡 keychain storage + spawn-time `${VAR}` resolution; the literal token never touches disk (security test asserts it).
+- `skills/profile/` — the authored Profile Skill (`SKILL.md` + JSON Schema + gather script) the Projection Engine deploys into all three agents.
+- `src-tauri/` — Tauri v2 app; `commands.rs` (runtime shell) + `engines.rs` (thin IPC over the pure engines).
+- `src/` — React + TypeScript frontend; one agent-agnostic UI (zero per-agent branches); `ipc.ts` + `engines.ts` are the only IPC chokepoints.
 
 ### Build / lint / test commands
 
 ```bash
-# 🔴 core — hermetic, no API key/network:
-cargo test -p acp-host
-cargo clippy -p acp-host --all-targets
+# Pure engines — hermetic, no API key/network, no Tauri build (disk-cheap):
+cargo test -p canonical -p projection -p handoff -p profile -p secrets
+cargo test -p acp-host                       # 🔴 core: unit + offline transport
+cargo clippy --workspace --all-targets
 
 # Frontend:
 npm install && npm run typecheck && npm run build
 
-# Desktop app (needs a display + Linux webkit2gtk deps — see README.md):
-npm run tauri dev
+# Tauri app compiles (needs dist/ from `npm run build` first):
+cargo check -p agent-bridge
+npm run tauri dev                            # run it (needs a display + Linux webkit deps)
 
-# Real-adapter gate tests (skip-guarded on the API key):
+# Skip-guarded gates the operator runs (need keys / a real keychain):
 ANTHROPIC_API_KEY=sk-... cargo test -p acp-host --test round_trip -- --ignored
-# Live smoke after any 🔴 change:
+cargo test -p secrets real_keychain_round_trip -- --ignored
 ANTHROPIC_API_KEY=sk-... tests-e2e/smoke.sh claude
 ```
 
-The `acp-host` public API + its tests are **frozen** (plan §6b): change them only via the test-first, run-for-real ritual. `AGENT_BRIDGE_DEBUG_FRAMES=1` logs raw ACP traffic.
+The `acp-host` public API + its transport tests are **frozen** (plan §6b): change them only via the test-first, run-for-real ritual; adding an agent is a `registry.rs` row, not new code. `AGENT_BRIDGE_DEBUG_FRAMES=1` logs raw ACP traffic. The pure engines are 🟢/🟡 — verify by running their tests, not by reading diffs.
+
+### What's left (next surface, not yet built)
+Frontend UI panels that *consume* the wired engine commands (config preview/diff, profile dashboard, continuity report, secret-binding manager). The Rust IPC + typed `engines.ts` contract exist and typecheck; the React views are the next milestone.
 
 ## What this is
 
