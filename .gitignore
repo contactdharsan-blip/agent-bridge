@@ -1,0 +1,15 @@
+# Rust
+/target
+**/target
+
+# Node / frontend
+node_modules
+dist
+*.tsbuildinfo
+
+# Tauri
+src-tauri/gen
+
+# Env / secrets
+.env
+.env.*
