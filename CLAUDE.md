@@ -2,14 +2,39 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: pre-implementation
+## Project status: M1+M2 implemented (vertical slice)
 
-This repo currently contains **only the planning docs** — there is no source code, build system, or tests yet. The two source-of-truth documents are:
+The two source-of-truth documents remain binding architecture:
 
 - `agent-bridge-prd.md` — product requirements (what to build, for whom, success metrics).
 - `agent-bridge-plan.md` — architecture, the two-engine model, milestones, and the vibecoding execution playbook. **Read §0, §1, §6, and §6b before writing any code.**
 
-When implementation begins, update this file with real build/lint/test commands. Until then, treat the plan as binding architecture, not suggestion.
+What exists now (M1: one agent end-to-end; M2: Codex as a config entry):
+
+- `crates/acp-host/` — 🔴 the ACP transport core, frozen behind the narrow `AcpHost` trait + `AgentEvent` model in `contract.rs`. Built on Zed's `agent-client-protocol` crate (pinned `=1.0.1`). Adapters live in `registry.rs` (Claude/Codex via `npx`). Fully tested offline (unit + a real-subprocess transport test against `src/bin/fake_agent.rs`).
+- `src-tauri/` — Tauri v2 app crate; thin IPC glue (`commands.rs`) bridging the host's event channel to a JS `Channel`.
+- `src/` — React + TypeScript frontend; one agent-agnostic UI (zero per-agent branches).
+
+### Build / lint / test commands
+
+```bash
+# 🔴 core — hermetic, no API key/network:
+cargo test -p acp-host
+cargo clippy -p acp-host --all-targets
+
+# Frontend:
+npm install && npm run typecheck && npm run build
+
+# Desktop app (needs a display + Linux webkit2gtk deps — see README.md):
+npm run tauri dev
+
+# Real-adapter gate tests (skip-guarded on the API key):
+ANTHROPIC_API_KEY=sk-... cargo test -p acp-host --test round_trip -- --ignored
+# Live smoke after any 🔴 change:
+ANTHROPIC_API_KEY=sk-... tests-e2e/smoke.sh claude
+```
+
+The `acp-host` public API + its tests are **frozen** (plan §6b): change them only via the test-first, run-for-real ritual. `AGENT_BRIDGE_DEBUG_FRAMES=1` logs raw ACP traffic.
 
 ## What this is
 
