@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-bridge.dev/schemas/coder_profile.schema.json",
+  "title": "CoderProfile",
+  "description": "Strict cross-agent coder profile emitted by the Agent Bridge Profile Skill. Mirrors crates/profile/src/schema.rs — keep the two in sync.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "agent", "data", "taskMix", "frictionPoints",
+    "repeatedInstructions", "toolUsage", "efficiency", "strengths",
+    "agentAffinity", "signatures"
+  ],
+  "$defs": {
+    "agent": { "enum": ["claude", "codex", "cursor"] },
+    "taskCategory": {
+      "enum": ["debug", "implement", "refactor", "tests", "docs", "infra", "review", "explore", "other"]
+    },
+    "frictionPattern": {
+      "enum": ["prematureSolution", "repeatedInstruction", "contextBloat", "retryLoop", "abandonOnStall", "toolMisfire", "authFriction", "scopeCreep", "other"]
+    },
+    "unit": { "type": "number", "minimum": 0, "maximum": 1 }
+  },
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "agent": { "$ref": "#/$defs/agent" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sessionsAnalyzed", "daysCovered", "messagesAnalyzed"],
+      "properties": {
+        "sessionsAnalyzed": { "type": "integer", "minimum": 0 },
+        "daysCovered": { "type": "integer", "minimum": 0 },
+        "messagesAnalyzed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "taskMix": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "fraction"],
+        "properties": {
+          "category": { "$ref": "#/$defs/taskCategory" },
+          "fraction": { "$ref": "#/$defs/unit" }
+        }
+      }
+    },
+    "frictionPoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pattern", "evidenceExamples", "whichAgent", "frequency"],
+        "properties": {
+          "pattern": { "$ref": "#/$defs/frictionPattern" },
+          "evidenceExamples": { "type": "array", "items": { "type": "string" } },
+          "whichAgent": { "$ref": "#/$defs/agent" },
+          "frequency": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "repeatedInstructions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "occurrences", "candidateRule"],
+        "properties": {
+          "text": { "type": "string" },
+          "occurrences": { "type": "integer", "minimum": 0 },
+          "candidateRule": { "type": "string" }
+        }
+      }
+    },
+    "toolUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edit", "bash", "mcpCalls", "web", "read"],
+      "properties": {
+        "edit": { "type": "integer", "minimum": 0 },
+        "bash": { "type": "integer", "minimum": 0 },
+        "mcpCalls": { "type": "integer", "minimum": 0 },
+        "web": { "type": "integer", "minimum": 0 },
+        "read": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "efficiency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["abandonedSessions", "retryLoops", "contextBloatEvents", "cacheReuseRatio"],
+      "properties": {
+        "abandonedSessions": { "type": "integer", "minimum": 0 },
+        "retryLoops": { "type": "integer", "minimum": 0 },
+        "contextBloatEvents": { "type": "integer", "minimum": 0 },
+        "cacheReuseRatio": { "$ref": "#/$defs/unit" }
+      }
+    },
+    "strengths": { "type": "array", "items": { "type": "string" } },
+    "agentAffinity": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task", "preferredAgent", "confidence"],
+        "properties": {
+          "task": { "$ref": "#/$defs/taskCategory" },
+          "preferredAgent": { "$ref": "#/$defs/agent" },
+          "confidence": { "$ref": "#/$defs/unit" }
+        }
+      }
+    },
+    "signatures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repeatedPhrasings", "peakHours", "abandonPersist", "sessionRhythm", "avgSessionMinutes"],
+      "properties": {
+        "repeatedPhrasings": { "type": "array", "items": { "type": "string" } },
+        "peakHours": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 23 } },
+        "abandonPersist": { "enum": ["abandonsQuickly", "pushesThrough", "mixed"] },
+        "sessionRhythm": { "enum": ["shortBursts", "longSessions", "mixed"] },
+        "avgSessionMinutes": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

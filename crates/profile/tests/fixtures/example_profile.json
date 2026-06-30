@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "agent": "claude",
+  "data": {
+    "sessionsAnalyzed": 42,
+    "daysCovered": 30,
+    "messagesAnalyzed": 1880
+  },
+  "taskMix": [
+    { "category": "refactor", "fraction": 0.35 },
+    { "category": "debug", "fraction": 0.25 },
+    { "category": "implement", "fraction": 0.20 },
+    { "category": "tests", "fraction": 0.10 },
+    { "category": "explore", "fraction": 0.10 }
+  ],
+  "frictionPoints": [
+    {
+      "pattern": "repeatedInstruction",
+      "evidenceExamples": ["\"use our logger, not println\"", "\"always run the test suite first\""],
+      "whichAgent": "claude",
+      "frequency": 14
+    },
+    {
+      "pattern": "abandonOnStall",
+      "evidenceExamples": ["switched tasks after 2 failed builds"],
+      "whichAgent": "claude",
+      "frequency": 6
+    }
+  ],
+  "repeatedInstructions": [
+    {
+      "text": "run the test suite before claiming a task is done",
+      "occurrences": 19,
+      "candidateRule": "Always run the full test suite and paste results before reporting completion."
+    }
+  ],
+  "toolUsage": {
+    "edit": 320,
+    "bash": 210,
+    "mcpCalls": 140,
+    "web": 18,
+    "read": 410
+  },
+  "efficiency": {
+    "abandonedSessions": 7,
+    "retryLoops": 12,
+    "contextBloatEvents": 9,
+    "cacheReuseRatio": 0.62
+  },
+  "strengths": [
+    "front-loads context before editing",
+    "decomposes refactors into small reviewable diffs"
+  ],
+  "agentAffinity": [
+    { "task": "refactor", "preferredAgent": "claude", "confidence": 0.8 },
+    { "task": "debug", "preferredAgent": "codex", "confidence": 0.55 }
+  ],
+  "signatures": {
+    "repeatedPhrasings": ["\"keep diffs small\"", "\"verify before claiming done\""],
+    "peakHours": [9, 10, 11, 22, 23],
+    "abandonPersist": "mixed",
+    "sessionRhythm": "shortBursts",
+    "avgSessionMinutes": 28.5
+  }
+}
