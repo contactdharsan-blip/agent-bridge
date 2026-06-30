@@ -6,6 +6,7 @@ members = [
     "crates/projection",
     "crates/handoff",
     "crates/profile",
+    "crates/secrets",
     "src-tauri",
 ]
 
