@@ -4,6 +4,7 @@ members = [
     "crates/acp-host",
     "crates/canonical",
     "crates/projection",
+    "crates/handoff",
     "src-tauri",
 ]
 
