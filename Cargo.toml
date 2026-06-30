@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/acp-host", "src-tauri"]
+members = [
+    "crates/acp-host",
+    "crates/canonical",
+    "crates/projection",
+    "src-tauri",
+]
 
 [workspace.package]
 edition = "2021"
@@ -11,6 +16,7 @@ license = "MIT"
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "io-util", "process", "sync", "time"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+toml = "0.8"
 async-trait = "0.1"
 thiserror = "2"
 anyhow = "1"

@@ -1,0 +1,15 @@
+# Representative ~/.codex/config.toml. Non-MCP keys (model, approval_policy) are
+# present on purpose: the parser must read only [mcp_servers.*] and ignore the rest.
+model = "gpt-5-codex"
+approval_policy = "on-request"
+
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+
+[mcp_servers.github.env]
+GITHUB_PERSONAL_ACCESS_TOKEN = "${GITHUB_TOKEN}"
+
+[mcp_servers.fetch]
+command = "uvx"
+args = ["mcp-server-fetch"]
