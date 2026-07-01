@@ -17,11 +17,13 @@ export function HandoffPanel({
   agents,
   cwd,
   onSwitched,
+  onGoRun,
 }: {
   stream: AgentStream;
   agents: AgentInfo[];
   cwd: string;
   onSwitched: () => void;
+  onGoRun: () => void;
 }) {
   const store = useCanonical();
   const toast = useToast();
@@ -62,7 +64,11 @@ export function HandoffPanel({
         icon="handoff"
         title="No active session to hand off from"
         hint="Connect an agent in the Run tab first, then come back to carry its context to another agent."
-      />
+      >
+        <button className="btn btn-sm" onClick={onGoRun}>
+          <Icon name="cpu" /> Go to Run tab
+        </button>
+      </PanelEmpty>
     );
   }
 

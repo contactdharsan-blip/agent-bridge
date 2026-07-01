@@ -68,7 +68,7 @@ export function ContinuityView({
               <Icon name="switch" /> Needs a substitute
             </div>
             {continuity.data.needsSubstitute.length === 0 ? (
-              <p className="bucket-empty">None.</p>
+              <p className="bucket-empty">No substitutes needed for this target.</p>
             ) : (
               continuity.data.needsSubstitute.map((g, i) => <GapFillItem key={i} gap={g} />)
             )}
@@ -79,7 +79,7 @@ export function ContinuityView({
               <Icon name="plus" /> Add for parity
             </div>
             {continuity.data.addForParity.length === 0 ? (
-              <p className="bucket-empty">None.</p>
+              <p className="bucket-empty">Nothing to add for parity.</p>
             ) : (
               continuity.data.addForParity.map((g, i) => <GapFillItem key={i} gap={g} />)
             )}
