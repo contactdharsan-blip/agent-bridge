@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { useCanonical } from "../state/canonical";
 import type { AgentInfo } from "../types";
 import { AuthBadge } from "./AuthBadge";
@@ -29,6 +30,7 @@ export function OnboardingCard({
   hasProfile,
   onGoConfig,
   onGoProfile,
+  onRecheck,
   onDismiss,
 }: {
   agents: AgentInfo[];
@@ -36,9 +38,19 @@ export function OnboardingCard({
   hasProfile: boolean;
   onGoConfig: () => void;
   onGoProfile: () => void;
+  onRecheck: () => Promise<void>;
   onDismiss: () => void;
 }) {
   const anyConnected = agents.some((a) => a.authStatus === "connected");
+  const [rechecking, setRechecking] = useState(false);
+  const recheck = async () => {
+    setRechecking(true);
+    try {
+      await onRecheck();
+    } finally {
+      setRechecking(false);
+    }
+  };
   const canonical = useCanonical();
   // Label is "Set up" not "Project": this proves the canonical config was
   // edited, not that a projection was reviewed/copied — so the step stays
@@ -76,10 +88,15 @@ export function OnboardingCard({
             ))}
           </div>
           {!anyConnected && (
-            <p className="onboard-hint">
-              For a <em>needs-login</em> agent, set its key env var or log in via its own CLI, then
-              the status flips on the next check.
-            </p>
+            <>
+              <p className="onboard-hint">
+                For a <em>needs-login</em> agent, set its key env var or log in via its own CLI, then
+                re-check — the status flips without relaunching.
+              </p>
+              <button className="btn btn-sm" onClick={recheck} disabled={rechecking}>
+                <Icon name="refresh" /> {rechecking ? "Re-checking…" : "Re-check"}
+              </button>
+            </>
           )}
         </Step>
 

@@ -1,6 +1,6 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AccentSwitcher } from "./components/AccentSwitcher";
 import { AgentPicker } from "./components/AgentPicker";
 import { CommandPalette, type Command } from "./components/CommandPalette";
@@ -41,14 +41,21 @@ export default function App() {
   const stream = useAgentStream();
   const toast = useToast();
 
-  useEffect(() => {
-    listAgents()
+  // Re-pollable so the onboarding/tour instruction ("set the key or log in via
+  // the CLI, then re-check") is actually completable — auth can change without
+  // relaunching the app. Keeps the user's current pick; only defaults when unset.
+  const refreshAgents = useCallback(() => {
+    return listAgents()
       .then((list) => {
         setAgents(list);
-        if (list.length > 0) setSelected(list[0].id);
+        setConnectError(null);
+        setSelected((cur) => cur || list[0]?.id || "");
       })
       .catch((e) => setConnectError(String(e)));
   }, []);
+  useEffect(() => {
+    void refreshAgents();
+  }, [refreshAgents]);
 
   const connect = async () => {
     setConnecting(true);
@@ -264,6 +271,7 @@ export default function App() {
                       hasProfile={hasProfile}
                       onGoConfig={() => setTab("config")}
                       onGoProfile={() => setTab("profile")}
+                      onRecheck={refreshAgents}
                       onDismiss={() => setOnboardingDismissed(true)}
                     />
                   )}
