@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AgentPicker } from "./components/AgentPicker";
+import { CommandPalette, type Command } from "./components/CommandPalette";
 import { ConfigPanel } from "./components/config/ConfigPanel";
 import { HandoffPanel } from "./components/handoff/HandoffPanel";
 import { ProfilePanel } from "./components/profile/ProfilePanel";
@@ -58,6 +59,58 @@ export default function App() {
 
   const connected = stream.session !== null;
 
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  const commands = useMemo<Command[]>(() => {
+    const cmds: Command[] = [
+      { id: "tab-run", label: "Go to Run", hint: "1", run: () => setTab("run") },
+      { id: "tab-config", label: "Go to Config", hint: "2", run: () => setTab("config") },
+      { id: "tab-handoff", label: "Go to Handoff", hint: "3", run: () => setTab("handoff") },
+      { id: "tab-profile", label: "Go to Profile", hint: "4", run: () => setTab("profile") },
+    ];
+    if (!connected && selected && cwd.trim()) {
+      cmds.push({ id: "connect", label: `Connect to ${selected}`, run: connect });
+    }
+    if (stream.turnActive) {
+      cmds.push({ id: "cancel", label: "Cancel current turn", hint: "Esc", run: () => stream.cancel() });
+    }
+    return cmds;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, selected, cwd, stream.turnActive]);
+
+  // Global shortcuts (UI-FR32): ⌘/Ctrl-K toggles the palette; Esc closes it or
+  // cancels an in-flight turn; number keys switch tabs when not typing in a field.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+        return;
+      }
+      if (e.key === "Escape") {
+        if (paletteOpen) {
+          setPaletteOpen(false);
+          return;
+        }
+        if (stream.turnActive) void stream.cancel();
+        return;
+      }
+      const el = e.target as HTMLElement | null;
+      const typing =
+        !!el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT" ||
+          el.isContentEditable);
+      if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const map: Record<string, string> = { "1": "run", "2": "config", "3": "handoff", "4": "profile" };
+        if (map[e.key]) setTab(map[e.key]);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [paletteOpen, stream]);
+
   return (
     <>
     <div className="app app-bg">
@@ -65,6 +118,9 @@ export default function App() {
         <div className="app-title">
           <span className="app-mark" aria-hidden="true" />
           <h1>Agent Bridge</h1>
+          <button className="palette-trigger" onClick={() => setPaletteOpen(true)} title="Command palette">
+            <kbd className="kbd">⌘K</kbd>
+          </button>
         </div>
         <AgentPicker
           agents={agents}
@@ -111,6 +167,7 @@ export default function App() {
         )}
       </main>
     </div>
+    <CommandPalette open={paletteOpen} commands={commands} onClose={() => setPaletteOpen(false)} />
     <Toasts />
     </>
   );

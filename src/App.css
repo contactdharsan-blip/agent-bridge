@@ -1180,6 +1180,96 @@ body {
   cursor: pointer;
 }
 
+/* ---- Command palette + kbd -------------------------------------------------- */
+.kbd {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+}
+
+.app-title {
+  justify-content: flex-start;
+}
+.palette-trigger {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.1rem;
+}
+
+.palette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(3, 7, 18, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 14vh;
+  animation: fade-in 0.15s ease-in-out both;
+}
+.palette {
+  width: min(34rem, 92vw);
+  background: rgba(17, 24, 39, 0.92);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl, 0 20px 40px rgba(0, 0, 0, 0.6));
+  overflow: hidden;
+  animation: card-entry 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.palette-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--color-divider);
+  color: var(--color-text-tertiary);
+}
+.palette-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.95rem;
+}
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.3rem;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.palette-item-active {
+  background: rgba(var(--theme-primary-rgb), 0.14);
+  color: var(--theme-primary-light);
+}
+.palette-empty {
+  padding: 0.75rem 0.65rem;
+  color: var(--color-text-tertiary);
+  font-size: 0.85rem;
+}
+
 /* ---- Toasts ----------------------------------------------------------------- */
 .toast-stack {
   position: fixed;

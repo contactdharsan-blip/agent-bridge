@@ -53,7 +53,7 @@ Pure-frontend batch — no backend change, no Tauri build. Verify each with
 `npm run typecheck && npm run build`; §12 adds a Vitest unit suite (`npm test`).
 
 - [x] **UI-6 Toasts (UI-FR31).** ToastProvider + useToast; wire copy/error/success across panels.
-- [ ] **UI-7 Persistence (UI-FR30).** localStorage for canonical store + collected profiles + settings (tab, accent).
+- [x] **UI-7 Persistence (UI-FR30).** localStorage for canonical store + collected profiles + settings (tab, accent).
 - [ ] **UI-8 Command palette + shortcuts (UI-FR29, UI-FR32).** ⌘K palette (fuzzy, keyboard-operated); tab hotkeys 1–4; Esc cancels/closes.
 - [ ] **UI-9 Onboarding (UI-FR28).** Inline first-run setup checklist in the shell (agent status + login pointers + first-profile nudge).
 - [ ] **UI-10 Export/import + accent theming (UI-FR33, UI-FR34).** Download/upload profile JSON (import via validate_profile); emerald/sky/violet accent switch.
