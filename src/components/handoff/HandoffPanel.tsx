@@ -76,6 +76,17 @@ export function HandoffPanel({
   const targetErrored = targetInfo?.authStatus === "error";
   const canSwitch =
     !!target && target !== source && !!workingDirectory.trim() && !targetErrored;
+  // Visible, AT-reachable reason the switch is blocked (the button's title alone
+  // is invisible to keyboard/touch/screen-reader users, and the fix — the
+  // working-dir field — lives in the other column).
+  const blockedReason =
+    !target || target === source
+      ? "Pick a target agent different from the source."
+      : !workingDirectory.trim()
+        ? "Set a working directory in the snapshot panel to enable switching."
+        : targetErrored
+          ? "Resolve the target agent's error above first."
+          : null;
 
   const seedFromThread = () => {
     const text = stream.messages
@@ -164,7 +175,13 @@ export function HandoffPanel({
       </div>
 
       <div className="handoff-diff-col" data-tour-step="handoff-diff">
-        <CarryDiff snapshot={snapshot} targetAgent={target} canSwitch={canSwitch} onSwitch={doSwitch} />
+        <CarryDiff
+          snapshot={snapshot}
+          targetAgent={target}
+          canSwitch={canSwitch}
+          blockedReason={blockedReason}
+          onSwitch={doSwitch}
+        />
       </div>
     </div>
   );

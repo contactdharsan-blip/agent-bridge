@@ -133,11 +133,16 @@ export function DriftWrite({
           className="btn btn-sm btn-primary"
           onClick={apply}
           disabled={!reviewed || !contents}
-          title={!reviewed ? "Review drift before writing" : undefined}
+          aria-describedby={!reviewed ? "drift-blocked" : undefined}
         >
           <Icon name="check" /> Copy approved config
         </button>
       </div>
+      {!reviewed && (
+        <p className="callout callout-warning" id="drift-blocked">
+          <Icon name="alert" /> Check drift above before copying the config out.
+        </p>
+      )}
 
       {drift.phase === "done" && (
         <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>

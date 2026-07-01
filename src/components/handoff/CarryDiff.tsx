@@ -39,11 +39,13 @@ export function CarryDiff({
   targetAgent,
   canSwitch,
   onSwitch,
+  blockedReason,
 }: {
   snapshot: ContextSnapshot;
   targetAgent: string;
   canSwitch: boolean;
   onSwitch: (brief: string) => void;
+  blockedReason?: string | null;
 }) {
   const [brief, setBrief] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
@@ -139,10 +141,15 @@ export function CarryDiff({
             className="btn btn-primary"
             disabled={!acked || !canSwitch}
             onClick={() => onSwitch(brief)}
-            title={!canSwitch ? "Pick a valid target and working directory first" : undefined}
+            aria-describedby={!canSwitch && blockedReason ? "switch-blocked" : undefined}
           >
             <Icon name="arrowRight" /> Switch to {targetAgent} &amp; send brief
           </button>
+          {!canSwitch && blockedReason && (
+            <p className="callout callout-warning" id="switch-blocked">
+              <Icon name="alert" /> {blockedReason}
+            </p>
+          )}
         </>
       )}
     </div>
