@@ -61,7 +61,9 @@ Pure-frontend batch — no backend change, no Tauri build. Verify each with
 
 ### Audit + verify phase (goal: verify the rest of the product works)
 - [x] Rust suite green — all pure crates + acp-host offline pass (0 failures).
-- [ ] Run a multi-agent audit workflow over the frontend + honesty affordances.
+- [x] Multi-agent audit workflow (4 dims × find → adversarial verify): 11 raw → 10 confirmed, 1 refuted.
+- [x] Fixed all 10 (4 correctness @ `24254dd`, 6 a11y @ `87909dd`); typecheck + build + 19 tests green.
+- [x] Focused re-verify workflow confirming each fix landed.
 - [x] Frontend gate green — typecheck + build + 19 Vitest tests (incl. App render smoke).
 
 ### Not in scope (operator / later)
