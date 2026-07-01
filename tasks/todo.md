@@ -39,7 +39,7 @@ Tasks (each = typecheck + build green, then commit):
 - [x] **UI-2 Config / Projection panel.** Canonical form editor → `preview_mcp` (tool-ceiling warning) +
       `preview_instructions` (equivalent-not-identical badge + fidelityNote) + `check_drift` (blocking review) +
       `audit_secret_bindings` (`${VAR}` + resolvability, never a literal). (UI-FR9–15)
-- [ ] **UI-3 Handoff panel.** Client-side `ContextSnapshot` assembly + blocking carry-diff +
+- [x] **UI-3 Handoff panel.** Client-side `ContextSnapshot` assembly + blocking carry-diff +
       `build_handoff_brief` + honest "reconstructed brief" label + re-inject on target session. (UI-FR16–18)
 - [ ] **UI-4 Profile / Continuity panel.** Run-via-session capture → `validate_profile` (boundary reject) +
       `merge_profiles` (per-agent weight AND confidence) + `recommend_features` + `workflow_continuity`

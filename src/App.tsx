@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AgentPicker } from "./components/AgentPicker";
 import { ConfigPanel } from "./components/config/ConfigPanel";
 import { HandoffPanel } from "./components/handoff/HandoffPanel";
-import { PanelEmpty } from "./components/PanelEmpty";
+import { ProfilePanel } from "./components/profile/ProfilePanel";
 import { RunView } from "./components/RunView";
 import { TabBar, type TabDef } from "./components/TabBar";
 import { useAgentStream } from "./hooks/useAgentStream";
@@ -98,11 +98,7 @@ export default function App() {
 
         {tab === "profile" && (
           <div className="panel">
-            <PanelEmpty
-              icon="user"
-              title="Vibe-Coder Profile"
-              hint="Run the profile skill in-agent, merge with per-agent confidence, review continuity and gap-fills — arriving next."
-            />
+            <ProfilePanel stream={stream} />
           </div>
         )}
       </main>

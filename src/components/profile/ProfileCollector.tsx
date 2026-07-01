@@ -1,0 +1,121 @@
+import { useState } from "react";
+import { validateProfile } from "../../engines";
+import type { CoderProfile } from "../../engineTypes";
+import type { AgentStream } from "../../hooks/useAgentStream";
+import { Icon } from "../Icon";
+import { extractJson, PROFILE_PROMPT } from "./profileRun";
+
+// Collect up to three per-agent profiles (UI-FR19/20). Two honest paths, both
+// funneled through validate_profile so non-conforming JSON is rejected at the
+// boundary and can never enter the merge: run the skill in the live session, or
+// paste JSON emitted from an agent you ran it in manually.
+export function ProfileCollector({
+  stream,
+  collected,
+  onAdd,
+  onRemove,
+}: {
+  stream: AgentStream;
+  collected: CoderProfile[];
+  onAdd: (profile: CoderProfile) => void;
+  onRemove: (agent: string) => void;
+}) {
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [paste, setPaste] = useState("");
+
+  const runInSession = async () => {
+    if (!stream.session) return;
+    setError(null);
+    setRunning(true);
+    try {
+      const text = await stream.promptCapture(PROFILE_PROMPT);
+      const json = extractJson(text);
+      if (!json) throw new Error("No JSON object found in the agent's reply.");
+      onAdd(await validateProfile(json));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const validatePaste = async () => {
+    setError(null);
+    try {
+      onAdd(await validateProfile(paste));
+      setPaste("");
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  return (
+    <div className="glass-card profile-collector">
+      <h3 className="card-title">
+        <Icon name="user" /> Collect per-agent profiles
+      </h3>
+      <p className="card-sub">
+        The skill runs on each agent's own model over its local history — only the aggregate JSON
+        leaves the session. Nothing raw is uploaded.
+      </p>
+
+      {stream.session ? (
+        <button className="btn btn-sm btn-primary" onClick={runInSession} disabled={running || stream.turnActive}>
+          <Icon name="sparkles" /> {running ? "Running in session…" : `Run profile in ${stream.agentId}`}
+        </button>
+      ) : (
+        <div className="callout">
+          <Icon name="info" /> Connect an agent in the Run tab to profile it live, or paste its JSON
+          below.
+        </div>
+      )}
+
+      <div className="snap-field">
+        <div className="snap-field-head">
+          <span>Or paste a CoderProfile JSON</span>
+        </div>
+        <textarea
+          className="ondisk-input"
+          rows={3}
+          placeholder='{ "schemaVersion": 1, "agent": "claude", ... }'
+          value={paste}
+          onChange={(e) => setPaste(e.target.value)}
+        />
+        <button className="btn btn-sm" onClick={validatePaste} disabled={!paste.trim()}>
+          <Icon name="shield" /> Validate &amp; add
+        </button>
+      </div>
+
+      {error && (
+        <div className="callout callout-error">
+          <Icon name="x" /> Rejected at the boundary (schema failure, not a fabricated profile):{" "}
+          {error}
+        </div>
+      )}
+
+      {collected.length > 0 && (
+        <ul className="collected-list">
+          {collected.map((p) => (
+            <li key={p.agent} className="collected-item">
+              <span className="badge badge-accent">
+                <Icon name="check" /> {p.agent}
+              </span>
+              <span className="collected-vol">
+                {p.data.messagesAnalyzed} msgs · {p.data.sessionsAnalyzed} sessions ·{" "}
+                {p.data.daysCovered}d
+              </span>
+              <button
+                className="btn btn-sm btn-ghost icon-btn"
+                aria-label={`remove ${p.agent} profile`}
+                onClick={() => onRemove(p.agent)}
+              >
+                <Icon name="trash" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
