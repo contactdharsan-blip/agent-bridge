@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   gapFillsFor,
   mergeProfiles,
   recommendFeatures,
+  validateProfile,
   workflowContinuity,
 } from "../../engines";
 import type {
@@ -16,6 +17,7 @@ import type {
 import type { AgentStream } from "../../hooks/useAgentStream";
 import { useCanonical } from "../../state/canonical";
 import { load, save } from "../../state/persist";
+import { useToast } from "../../state/toast";
 import type { AsyncState } from "../config/hooks";
 import { Icon } from "../Icon";
 import { PanelEmpty } from "../PanelEmpty";
@@ -32,6 +34,8 @@ const EMPTY: AsyncState<never> = { data: null, loading: false, error: null };
 // only aggregate JSON ever leaves a session.
 export function ProfilePanel({ stream }: { stream: AgentStream }) {
   const store = useCanonical();
+  const toast = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
   // Persisted so collected profiles survive both a tab switch (the panel unmounts)
   // and a reload (UI-FR30).
   const [profiles, setProfiles] = useState<CoderProfile[]>(() =>
@@ -51,6 +55,36 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
     setProfiles((prev) => [...prev.filter((x) => x.agent !== p.agent), p]);
   const removeProfile = (agent: string) =>
     setProfiles((prev) => prev.filter((x) => x.agent !== agent));
+
+  // Export/import (UI-FR33): aggregate JSON only — never transcripts or source.
+  // Import runs every profile through validate_profile, so a corrupt file is
+  // rejected at the boundary exactly like a fresh run.
+  const exportProfiles = () => {
+    const payload = JSON.stringify({ profiles, merged }, null, 2);
+    const blob = new Blob([payload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "agent-bridge-profile.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.push("success", "Exported profile JSON");
+  };
+
+  const importProfiles = async (file: File) => {
+    try {
+      const parsed = JSON.parse(await file.text());
+      const list: unknown[] = Array.isArray(parsed) ? parsed : (parsed?.profiles ?? []);
+      let n = 0;
+      for (const p of list) {
+        addProfile(await validateProfile(JSON.stringify(p)));
+        n += 1;
+      }
+      toast.push(n ? "success" : "info", n ? `Imported ${n} profile(s)` : "No profiles in file");
+    } catch (e) {
+      toast.push("error", `Import rejected at the boundary: ${e}`);
+    }
+  };
 
   // Merge + recommendations recompute when the collected set changes.
   const profileKey = JSON.stringify(profiles.map((p) => `${p.agent}:${p.data.messagesAnalyzed}`));
@@ -104,6 +138,25 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
   return (
     <div className="profile-panel">
       <div className="profile-collect-col">
+        <div className="profile-toolbar">
+          <button className="btn btn-sm" onClick={exportProfiles} disabled={profiles.length === 0}>
+            <Icon name="arrowRight" /> Export
+          </button>
+          <button className="btn btn-sm" onClick={() => fileRef.current?.click()}>
+            <Icon name="plus" /> Import
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void importProfiles(f);
+              e.target.value = "";
+            }}
+          />
+        </div>
         <div className="callout callout-honesty local-first-note">
           <Icon name="shield" />
           <span>Stays on this machine — only aggregate profile JSON, never transcripts or source.</span>

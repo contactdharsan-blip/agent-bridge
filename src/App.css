@@ -1267,13 +1267,42 @@ body {
 
 .app-title {
   justify-content: flex-start;
+  gap: 0.55rem;
+}
+.accent-switcher {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+.accent-dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.6;
+  transition: transform var(--transition-spring), opacity var(--transition-fast);
+}
+.accent-dot:hover {
+  opacity: 1;
+}
+.accent-dot-active {
+  opacity: 1;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
 }
 .palette-trigger {
-  margin-left: auto;
   background: transparent;
   border: none;
   cursor: pointer;
   padding: 0.1rem;
+}
+
+.profile-toolbar {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .palette-overlay {

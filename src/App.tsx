@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { AccentSwitcher } from "./components/AccentSwitcher";
 import { AgentPicker } from "./components/AgentPicker";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { ConfigPanel } from "./components/config/ConfigPanel";
@@ -11,6 +12,7 @@ import { Toasts } from "./components/Toasts";
 import { useAgentStream } from "./hooks/useAgentStream";
 import { listAgents } from "./ipc";
 import { load, save } from "./state/persist";
+import { applyAccent, type AccentName } from "./state/theme";
 import { useToast } from "./state/toast";
 import type { AgentInfo } from "./types";
 
@@ -67,6 +69,14 @@ export default function App() {
   useEffect(() => {
     save("settings.onboardingDismissed", onboardingDismissed);
   }, [onboardingDismissed]);
+
+  const [accent, setAccent] = useState<AccentName>(() =>
+    load<AccentName>("settings.accent", "emerald"),
+  );
+  useEffect(() => {
+    applyAccent(accent);
+    save("settings.accent", accent);
+  }, [accent]);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -127,6 +137,7 @@ export default function App() {
         <div className="app-title">
           <span className="app-mark" aria-hidden="true" />
           <h1>Agent Bridge</h1>
+          <AccentSwitcher accent={accent} onChange={setAccent} />
           <button className="palette-trigger" onClick={() => setPaletteOpen(true)} title="Command palette">
             <kbd className="kbd">⌘K</kbd>
           </button>
