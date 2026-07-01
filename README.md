@@ -59,12 +59,17 @@ commands (`src/ipc.ts` runtime, `src/engines.ts` engines) — no per-agent branc
   *equivalent vs approximation* (source shown before install, generated skills as
   reviewable diffs).
 
+Cross-cutting affordances (UI-PRD §11 v1.1): a **⌘K command palette** + tab
+hotkeys (1–4), **toasts** for every action/failure, **local persistence** of the
+canonical store / collected profiles / settings, an inline **onboarding** checklist,
+**profile export/import** (import re-validated at the boundary), and **accent
+theming** (emerald / sky / violet).
+
 The look is the product-agnostic **Dark Liquid-Glass** design system (adopted as
 CSS tokens only — no Tailwind/Motion deps; spring motion is gated by
-`prefers-reduced-motion`). Onboarding (a first-run wizard, UI-FR28) is the one
-UI-PRD item deferred to a later milestone; per-agent auth badges cover setup
-visibility in the meantime. The React views are verified by `npm run typecheck`
-and `npm run build` (both hermetic and disk-cheap — no Tauri build required).
+`prefers-reduced-motion`). The React views are verified by `npm run typecheck`,
+`npm run build`, and `npm test` (a hermetic Vitest suite over the pure client-side
+glue plus an App render smoke) — all disk-cheap, no Tauri build required.
 
 ## Prerequisites
 
@@ -90,9 +95,10 @@ cargo test -p canonical -p projection -p handoff -p profile -p secrets
 cargo test -p acp-host            # unit + offline transport
 cargo clippy --workspace --all-targets
 
-# Frontend:
+# Frontend (all hermetic — no key, network, or display; no Tauri build):
 npm run typecheck                 # tsc --noEmit
 npm run build                     # tsc + vite build
+npm test                          # vitest — pure client-side glue + App render smoke
 cargo check -p agent-bridge       # the Tauri app compiles (needs dist/ from build)
 
 # Real-adapter gate tests (skip-guarded; need a key + Node + network):

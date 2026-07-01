@@ -31,8 +31,8 @@ cargo test -p canonical -p projection -p handoff -p profile -p secrets
 cargo test -p acp-host                       # 🔴 core: unit + offline transport
 cargo clippy --workspace --all-targets
 
-# Frontend:
-npm install && npm run typecheck && npm run build
+# Frontend (hermetic — no key/network/display, no Tauri build):
+npm install && npm run typecheck && npm run build && npm test
 
 # Tauri app compiles (needs dist/ from `npm run build` first):
 cargo check -p agent-bridge

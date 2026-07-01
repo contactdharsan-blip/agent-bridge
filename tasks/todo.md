@@ -60,9 +60,9 @@ Pure-frontend batch — no backend change, no Tauri build. Verify each with
 - [x] **UI-11 Vitest suite (§12).** Hermetic unit tests over extractJson / dominantProfile / stopNote / thread-append / toCanonical / persistence round-trip. `npm test` green.
 
 ### Audit + verify phase (goal: verify the rest of the product works)
-- [ ] Run Rust test suite (pure crates + acp-host offline) — confirm engine layer still green.
+- [x] Rust suite green — all pure crates + acp-host offline pass (0 failures).
 - [ ] Run a multi-agent audit workflow over the frontend + honesty affordances.
-- [ ] Frontend gate green (typecheck + build + npm test); app-level smoke.
+- [x] Frontend gate green — typecheck + build + 19 Vitest tests (incl. App render smoke).
 
 ### Not in scope (operator / later)
 - Real native-config disk writes — needs a Tauri fs-plugin follow-up (touches Rust, disk-gated).
