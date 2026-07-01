@@ -1270,10 +1270,23 @@ body {
   overflow-wrap: anywhere;
 }
 .carry-yes {
-  color: var(--color-text-secondary);
+  color: var(--color-success-fg);
 }
 .carry-no {
   color: var(--color-text-tertiary);
+}
+/* Per-row carry marker: a check on carrying rows, a minus on empty ones, so
+   the blocking carry-diff makes "carries vs. empty" unmistakable at a glance
+   instead of relying on a one-step color dim alone. */
+.carry-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.carry-mark svg {
+  width: 0.85em;
+  height: 0.85em;
+  flex: 0 0 auto;
 }
 .carry-actions {
   display: flex;

@@ -84,7 +84,10 @@ export function CarryDiff({
           <ul>
             {rows.map((r) => (
               <li key={r.label} className={r.carries ? "carry-yes" : "carry-no"}>
-                <span>{r.label}</span>
+                <span className="carry-mark">
+                  <Icon name={r.carries ? "check" : "minus"} />
+                  {r.label}
+                </span>
                 <span className="carry-detail">{r.detail}</span>
               </li>
             ))}
