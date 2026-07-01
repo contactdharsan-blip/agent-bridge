@@ -3,7 +3,7 @@
 **Status:** Draft v1.1 (expanded feature set §13 added; M3–M5b implemented)
 **Owner:** K (Cognifer Labs)
 **Last updated:** June 2026
-**Companion doc:** `agent-bridge-plan.md` (architecture & build sequence). Implementation status & remaining human steps: `tasks/operator-todo.md`.
+**Companion docs:** `agent-bridge-plan.md` (architecture & build sequence); `agent-bridge-ui-prd.md` (Client Surface / UI-UX PRD — the frontend that consumes the wired engines, post-M7 milestone). Implementation status & remaining human steps: `tasks/operator-todo.md`.
 
 ---
 
