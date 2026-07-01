@@ -47,6 +47,7 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
   const [target, setTarget] = useState<Agent>("codex");
 
   const [merged, setMerged] = useState<MergedProfile | null>(null);
+  const [mergeError, setMergeError] = useState<string | null>(null);
   const [recs, setRecs] = useState<Recommendation[] | null>(null);
   const [continuity, setContinuity] = useState<AsyncState<ContinuityReport>>(EMPTY);
   const [gapFills, setGapFills] = useState<AsyncState<GapFill[]>>(EMPTY);
@@ -93,13 +94,24 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
   useEffect(() => {
     if (profiles.length === 0) {
       setMerged(null);
+      setMergeError(null);
       setRecs(null);
       return;
     }
     let cancelled = false;
     mergeProfiles(profiles)
-      .then((m) => !cancelled && setMerged(m))
-      .catch(() => !cancelled && setMerged(null));
+      .then((m) => {
+        if (!cancelled) {
+          setMerged(m);
+          setMergeError(null);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setMerged(null);
+          setMergeError(String(e));
+        }
+      });
     const dom = dominantProfile(profiles);
     setRecs(null);
     if (dom) {
@@ -191,6 +203,13 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
               gapFills={gapFills}
             />
           </>
+        ) : mergeError ? (
+          <PanelEmpty
+            icon="alert"
+            tone="error"
+            title="Couldn't merge the collected profiles"
+            hint={mergeError}
+          />
         ) : (
           <PanelEmpty
             icon="user"
