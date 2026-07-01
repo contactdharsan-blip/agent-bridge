@@ -47,10 +47,26 @@ Tasks (each = typecheck + build green, then commit):
       generated-skill as diff). (UI-FR19–26)
 - [x] **UI-5 Docs + ship.** README + CLAUDE.md + lessons updated; UI-FR28 deferral recorded. Branch pushed.
 
-### Remaining after this milestone (not engineering backlog)
-- UI-FR28 onboarding wizard — deferred (auth badges + docs link cover setup).
-- Real native-config disk writes — needs a Tauri fs-plugin follow-up (outside the 15-command boundary; touches Rust → operator/next milestone, disk-gated).
-- `tasks/operator-todo.md` — human-only items (keys, signing, marketplace curation, pricing/product decisions).
+## v1.1 client-surface addendum (`agent-bridge-ui-prd.md` §11–12) — IN PROGRESS
+
+Pure-frontend batch — no backend change, no Tauri build. Verify each with
+`npm run typecheck && npm run build`; §12 adds a Vitest unit suite (`npm test`).
+
+- [ ] **UI-6 Toasts (UI-FR31).** ToastProvider + useToast; wire copy/error/success across panels.
+- [ ] **UI-7 Persistence (UI-FR30).** localStorage for canonical store + collected profiles + settings (tab, accent).
+- [ ] **UI-8 Command palette + shortcuts (UI-FR29, UI-FR32).** ⌘K palette (fuzzy, keyboard-operated); tab hotkeys 1–4; Esc cancels/closes.
+- [ ] **UI-9 Onboarding (UI-FR28).** Inline first-run setup checklist in the shell (agent status + login pointers + first-profile nudge).
+- [ ] **UI-10 Export/import + accent theming (UI-FR33, UI-FR34).** Download/upload profile JSON (import via validate_profile); emerald/sky/violet accent switch.
+- [ ] **UI-11 Vitest suite (§12).** Hermetic unit tests over extractJson / dominantProfile / stopNote / thread-append / toCanonical / persistence round-trip. `npm test` green.
+
+### Audit + verify phase (goal: verify the rest of the product works)
+- [ ] Run Rust test suite (pure crates + acp-host offline) — confirm engine layer still green.
+- [ ] Run a multi-agent audit workflow over the frontend + honesty affordances.
+- [ ] Frontend gate green (typecheck + build + npm test); app-level smoke.
+
+### Not in scope (operator / later)
+- Real native-config disk writes — needs a Tauri fs-plugin follow-up (touches Rust, disk-gated).
+- `tasks/operator-todo.md` — human-only items (keys, signing, marketplace curation, pricing).
 
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.

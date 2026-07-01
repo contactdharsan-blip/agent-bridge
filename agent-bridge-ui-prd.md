@@ -267,3 +267,68 @@ Product/UX choices to resolve before building the panels they govern. Flag, don'
 - **Multi-session shell IA (forward-looking):** even though concurrent sessions are a later milestone, the shell's information architecture (tabs vs split panes vs single focused session) is decided now and is expensive to change later.
 - **Command palette as primary nav vs supplement:** is the palette the main way to move around (minimal chrome), or a power-user accelerator layered over conventional navigation?
 - **Diff/monospace theming across webviews:** one shared theme and density, or per-platform tuning, given WebKit/WebView2/WebKitGTK rendering differences (UI-NFR7)?
+
+---
+
+## 11. v1.1 client-surface addendum (UI-FR28–UI-FR34)
+
+The first UI milestone (§6, UI-FR1–27) shipped the four panels and the honesty
+contract. This addendum specifies the **v1.1 batch** — cross-cutting affordances
+that make the shipped surface faster and stickier without adding any backend
+capability. Every requirement here is **pure-frontend** (it consumes only the 15
+already-wired commands, or the browser's own storage/clipboard), so it is
+verifiable by `npm run typecheck && npm run build` plus the new unit suite (§12),
+with no change to the frozen 🔴 core and no Tauri build required. The honesty
+constraints (UI-NFR1) continue to bind: nothing added here may imply more
+seamlessness than the engines deliver.
+
+- **UI-FR28. First-run onboarding (inline).** On first launch (no agent yet
+  connected), surface an inline setup checklist in the shell: which agents are
+  `connected` / `needsLogin` / `error` (from `list_agents`), a pointer to each
+  agent's own native login for the ones that need it, and a nudge to run a first
+  profile once an agent is connected. Progressive and dismissable — never a modal
+  wall. *Calls:* `list_agents`. *Realizes:* FR26, FR48. *Honesty:* the app never
+  drives an agent's login itself (there is no login command among the 15); it
+  reports status and points out, then re-polls.
+- **UI-FR29. Command palette (⌘K / Ctrl-K).** A keyboard-first palette that
+  reaches every primary action — switch to any tab, connect, cancel a turn, start
+  a handoff, run a profile, copy the current preview — with fuzzy filtering and
+  full keyboard operation (arrow keys + Enter, Escape to dismiss). Mouse paths
+  remain; the palette is the accelerator (UI-NFR4). *Calls:* none directly (routes
+  to existing actions). *Realizes:* UI-NFR4.
+- **UI-FR30. Canonical & profile persistence.** The canonical store (servers,
+  instructions, AGENTS.md) and collected/validated profiles persist locally across
+  reloads via browser storage, so a developer's edits and profile runs are not
+  lost on refresh. Storage is **local-only** — no sync, no upload (UI-NFR2).
+  *Calls:* none (client storage). *Realizes:* FR6, NFR1.
+- **UI-FR31. Toast notifications.** Transient, self-dismissing feedback for
+  discrete actions and failures (config copied, profile added/rejected, drift
+  re-checked, handoff sent, IPC error) so outcomes are never silent and errors
+  never render as emptiness (UI-NFR5). Toasts encode meaning with icon + text, not
+  color alone (UI-NFR6). *Realizes:* UI-NFR5.
+- **UI-FR32. Global keyboard shortcuts.** Number keys switch tabs (1–4), ⌘/Ctrl-K
+  opens the palette, Escape cancels an in-flight turn or dismisses the palette.
+  All discoverable from the palette itself. *Realizes:* UI-NFR4, UI-NFR6.
+- **UI-FR33. Profile export / import.** Export the merged profile (and the
+  per-agent inputs) as a JSON file the developer owns, and import a previously
+  exported profile back — the import path runs every profile through
+  `validate_profile`, so a hand-edited or corrupt file is rejected at the boundary
+  exactly like a fresh run (UI-FR20). *Calls:* `validate_profile`. *Realizes:*
+  FR20, NFR1. *Honesty:* export is aggregate JSON only — never transcripts or
+  source (UI-NFR2).
+- **UI-FR34. Accent theming.** The Dark Liquid-Glass system is single-accent and
+  themeable via `--theme-*` variables; expose a small accent switcher (emerald /
+  sky / violet) persisted with the other settings (UI-FR30). Cosmetic only; every
+  status/honesty signal still carries icon + text so meaning never rests on the
+  accent hue (UI-NFR6). *Realizes:* UI-NFR6, UI-NFR7.
+
+## 12. Verification for the addendum
+
+The v1.1 batch adds a **hermetic frontend unit suite** (Vitest) over the
+pure client-side logic that the panels depend on — profile-JSON extraction, the
+dominant-profile selector, honest stop-reason mapping, the thread-append reducer,
+canonical→`Canonical` assembly, and the persistence (de)serialize round-trip.
+These are 🟢 by the trust-zone model: input in, value out, no transport. They run
+with `npm test` (no key, no network, no display), and join `npm run typecheck` +
+`npm run build` as the frontend gate. The engine behaviour they exercise is still
+owned by the Rust tests — the frontend suite asserts only the glue the UI adds.
