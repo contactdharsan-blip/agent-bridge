@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { checkDrift } from "../../engines";
 import type { DriftStatus, McpServer, Target } from "../../engineTypes";
+import { useToast } from "../../state/toast";
 import { Icon } from "../Icon";
 
 // Drift detection + the reviewed write (UI-FR13/14). The honesty gate is BLOCKING:
@@ -70,6 +71,7 @@ export function DriftWrite({
   const [onDisk, setOnDisk] = useState("");
   const [drift, setDrift] = useState<DriftState>({ phase: "idle" });
   const [copied, setCopied] = useState(false);
+  const toast = useToast();
 
   // A new projection must be re-reviewed before it can be written.
   const serversKey = JSON.stringify(servers);
@@ -92,8 +94,10 @@ export function DriftWrite({
     try {
       await navigator.clipboard.writeText(contents);
       setCopied(true);
+      toast.push("success", `Approved ${target} config copied`);
     } catch {
       setCopied(true); // clipboard blocked in webview — the artifact is still shown above
+      toast.push("info", "Clipboard blocked — copy the previewed config manually");
     }
   };
 

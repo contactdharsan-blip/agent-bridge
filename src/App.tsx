@@ -5,9 +5,10 @@ import { HandoffPanel } from "./components/handoff/HandoffPanel";
 import { ProfilePanel } from "./components/profile/ProfilePanel";
 import { RunView } from "./components/RunView";
 import { TabBar, type TabDef } from "./components/TabBar";
+import { Toasts } from "./components/Toasts";
 import { useAgentStream } from "./hooks/useAgentStream";
 import { listAgents } from "./ipc";
-import { CanonicalProvider } from "./state/canonical";
+import { useToast } from "./state/toast";
 import type { AgentInfo } from "./types";
 
 const TABS: TabDef[] = [
@@ -26,6 +27,7 @@ export default function App() {
   const [tab, setTab] = useState<string>("run");
 
   const stream = useAgentStream();
+  const toast = useToast();
 
   useEffect(() => {
     listAgents()
@@ -41,8 +43,10 @@ export default function App() {
     setConnectError(null);
     try {
       await stream.connect(selected, cwd.trim());
+      toast.push("success", `Connected to ${selected}`);
     } catch (e) {
       setConnectError(String(e));
+      toast.push("error", `Connect failed: ${e}`);
     } finally {
       setConnecting(false);
     }
@@ -51,7 +55,7 @@ export default function App() {
   const connected = stream.session !== null;
 
   return (
-    <CanonicalProvider>
+    <>
     <div className="app app-bg">
       <header className="app-header">
         <div className="app-title">
@@ -103,6 +107,7 @@ export default function App() {
         )}
       </main>
     </div>
-    </CanonicalProvider>
+    <Toasts />
+    </>
   );
 }

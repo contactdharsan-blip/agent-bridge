@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { AgentStream } from "../../hooks/useAgentStream";
 import type { ContextSnapshot } from "../../engineTypes";
 import { useCanonical } from "../../state/canonical";
+import { useToast } from "../../state/toast";
 import type { AgentInfo } from "../../types";
 import { Icon } from "../Icon";
 import { PanelEmpty } from "../PanelEmpty";
@@ -23,6 +24,7 @@ export function HandoffPanel({
   onSwitched: () => void;
 }) {
   const store = useCanonical();
+  const toast = useToast();
   const source = stream.agentId;
 
   const [target, setTarget] = useState<string>(() => agents.find((a) => a.id !== source)?.id ?? "");
@@ -79,8 +81,13 @@ export function HandoffPanel({
   };
 
   const doSwitch = async (brief: string) => {
-    await stream.switchWithBrief(target, workingDirectory.trim(), brief);
-    onSwitched();
+    try {
+      await stream.switchWithBrief(target, workingDirectory.trim(), brief);
+      toast.push("success", `Switched to ${target} — brief sent`);
+      onSwitched();
+    } catch (e) {
+      toast.push("error", `Handoff failed: ${e}`);
+    }
   };
 
   return (

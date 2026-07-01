@@ -2,6 +2,7 @@ import { useState } from "react";
 import { validateProfile } from "../../engines";
 import type { CoderProfile } from "../../engineTypes";
 import type { AgentStream } from "../../hooks/useAgentStream";
+import { useToast } from "../../state/toast";
 import { Icon } from "../Icon";
 import { extractJson, PROFILE_PROMPT } from "./profileRun";
 
@@ -23,6 +24,7 @@ export function ProfileCollector({
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paste, setPaste] = useState("");
+  const toast = useToast();
 
   const runInSession = async () => {
     if (!stream.session) return;
@@ -32,9 +34,12 @@ export function ProfileCollector({
       const text = await stream.promptCapture(PROFILE_PROMPT);
       const json = extractJson(text);
       if (!json) throw new Error("No JSON object found in the agent's reply.");
-      onAdd(await validateProfile(json));
+      const profile = await validateProfile(json);
+      onAdd(profile);
+      toast.push("success", `Validated ${profile.agent} profile`);
     } catch (e) {
       setError(String(e));
+      toast.push("error", "Profile rejected at the boundary");
     } finally {
       setRunning(false);
     }
@@ -43,10 +48,13 @@ export function ProfileCollector({
   const validatePaste = async () => {
     setError(null);
     try {
-      onAdd(await validateProfile(paste));
+      const profile = await validateProfile(paste);
+      onAdd(profile);
       setPaste("");
+      toast.push("success", `Validated ${profile.agent} profile`);
     } catch (e) {
       setError(String(e));
+      toast.push("error", "Profile rejected at the boundary");
     }
   };
 
