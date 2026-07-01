@@ -1,4 +1,5 @@
 import type { InstructionArtifact } from "../../engineTypes";
+import { useToast } from "../../state/toast";
 import { Icon } from "../Icon";
 import type { AsyncState } from "./hooks";
 
@@ -8,6 +9,19 @@ import type { AsyncState } from "./hooks";
 // (NFR2.2). The honesty affordance is sourced from the backend fields, not copy.
 export function InstructionsPreview({ state }: { state: AsyncState<InstructionArtifact> }) {
   const { data, loading, error } = state;
+  const toast = useToast();
+
+  // Generate-only / copy-only — the same "copy then place it yourself" loop the
+  // MCP half has via DriftWrite, so the instructions branch isn't a view-only
+  // dead-end. No fs write; the honesty badge + fidelity note stay intact.
+  const copy = async (contents: string, path: string) => {
+    try {
+      await navigator.clipboard.writeText(contents);
+      toast.push("success", `${path} instructions copied — paste into the target file`);
+    } catch {
+      toast.push("info", "Clipboard blocked — copy the previewed instructions manually");
+    }
+  };
 
   return (
     <section className="preview-block">
@@ -24,11 +38,16 @@ export function InstructionsPreview({ state }: { state: AsyncState<InstructionAr
             <span className="preview-file">
               <Icon name="info" /> {data.path}
             </span>
-            {data.equivalentNotIdentical && (
-              <span className="badge badge-accent">
-                <Icon name="info" /> equivalent, not identical
-              </span>
-            )}
+            <span className="preview-head-actions">
+              {data.equivalentNotIdentical && (
+                <span className="badge badge-accent">
+                  <Icon name="info" /> equivalent, not identical
+                </span>
+              )}
+              <button className="btn btn-sm" onClick={() => copy(data.contents, data.path)}>
+                <Icon name="check" /> Copy instructions
+              </button>
+            </span>
           </header>
 
           <div className="callout callout-honesty">
