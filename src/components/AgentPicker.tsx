@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useState } from "react";
 import type { AgentInfo } from "../types";
 import { AuthBadge } from "./AuthBadge";
 import { Icon } from "./Icon";
@@ -15,6 +16,7 @@ export function AgentPicker({
   onSelect,
   onCwdChange,
   onConnect,
+  onRecheck,
 }: {
   agents: AgentInfo[];
   selected: string;
@@ -24,10 +26,21 @@ export function AgentPicker({
   onSelect: (id: string) => void;
   onCwdChange: (cwd: string) => void;
   onConnect: () => void;
+  onRecheck: () => Promise<void>;
 }) {
   const current = agents.find((a) => a.id === selected);
   // Never let a session start against an agent the core reports as errored (US-E1.4).
   const blocked = current?.authStatus === "error";
+  const needsLogin = current?.authStatus === "needsLogin";
+  const [rechecking, setRechecking] = useState(false);
+  const recheck = async () => {
+    setRechecking(true);
+    try {
+      await onRecheck();
+    } finally {
+      setRechecking(false);
+    }
+  };
 
   return (
     <div className="agent-surface" data-tour-step="agent-picker">
@@ -39,6 +52,14 @@ export function AgentPicker({
             <AuthBadge status={a.authStatus} env={a.authEnv} />
           </span>
         ))}
+        <button
+          className="btn btn-sm agent-recheck"
+          onClick={recheck}
+          disabled={rechecking}
+          title="Re-poll each agent's auth status"
+        >
+          <Icon name="refresh" /> {rechecking ? "Re-checking…" : "Re-check"}
+        </button>
       </div>
 
       <div className="agent-connect">
@@ -89,6 +110,13 @@ export function AgentPicker({
         <p className="agent-blocked-note">
           <Icon name="alert" /> {current?.displayName} reports an error and can't start a session
           until it clears.
+        </p>
+      )}
+      {!blocked && needsLogin && (
+        <p className="agent-blocked-note">
+          <Icon name="info" /> {current?.displayName} needs login — set{" "}
+          {current?.authEnv ?? "its key env var"} or log in via its own CLI, then Re-check. You can
+          still connect once it's set.
         </p>
       )}
     </div>

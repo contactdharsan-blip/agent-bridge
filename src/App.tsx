@@ -231,6 +231,7 @@ export default function App() {
           onSelect={setSelected}
           onCwdChange={setCwd}
           onConnect={connect}
+          onRecheck={refreshAgents}
         />
         <TabBar tabs={TABS} active={tab} onChange={setTab} />
       </header>
