@@ -4,6 +4,7 @@ import { AgentPicker } from "./components/AgentPicker";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { ConfigPanel } from "./components/config/ConfigPanel";
 import { HandoffPanel } from "./components/handoff/HandoffPanel";
+import { Icon } from "./components/Icon";
 import { OnboardingCard } from "./components/OnboardingCard";
 import { ProfilePanel } from "./components/profile/ProfilePanel";
 import { RunView } from "./components/RunView";
@@ -54,7 +55,7 @@ export default function App() {
       toast.push("success", `Connected to ${selected}`);
     } catch (e) {
       setConnectError(String(e));
-      toast.push("error", `Connect failed: ${e}`);
+      toast.push("error", `Couldn't connect to ${selected}`);
     } finally {
       setConnecting(false);
     }
@@ -152,6 +153,7 @@ export default function App() {
           selected={selected}
           cwd={cwd}
           disabled={connected || connecting}
+          connecting={connecting}
           onSelect={setSelected}
           onCwdChange={setCwd}
           onConnect={connect}
@@ -161,7 +163,18 @@ export default function App() {
 
       {connectError && (
         <div className="banner banner-error" role="alert">
-          {connectError}
+          <Icon name="alert" />
+          <div className="banner-body">
+            <strong>Couldn't reach the agent runtime.</strong>
+            <code className="banner-detail">{connectError}</code>
+          </div>
+          <button
+            className="banner-close"
+            aria-label="Dismiss error"
+            onClick={() => setConnectError(null)}
+          >
+            <Icon name="x" />
+          </button>
         </div>
       )}
 
@@ -195,6 +208,7 @@ export default function App() {
               agents={agents}
               cwd={cwd}
               onSwitched={() => setTab("run")}
+              onGoRun={() => setTab("run")}
             />
           </div>
         )}

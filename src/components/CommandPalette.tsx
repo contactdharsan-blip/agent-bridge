@@ -36,6 +36,7 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevFocus = useRef<HTMLElement | null>(null);
 
   const filtered = useMemo(
     () => commands.filter((c) => matches(c.label, query)),
@@ -43,12 +44,14 @@ export function CommandPalette({
   );
 
   useEffect(() => {
-    if (open) {
-      setQuery("");
-      setSelected(0);
-      // Focus after the overlay mounts.
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
+    if (!open) return;
+    // Remember what had focus so we can restore it on close (WCAG 2.4.3).
+    prevFocus.current = document.activeElement as HTMLElement | null;
+    setQuery("");
+    setSelected(0);
+    // Focus after the overlay mounts.
+    requestAnimationFrame(() => inputRef.current?.focus());
+    return () => prevFocus.current?.focus();
   }, [open]);
 
   useEffect(() => {
@@ -65,6 +68,11 @@ export function CommandPalette({
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Tab") {
+      // The input is the only focusable child — keep focus trapped in the modal.
+      e.preventDefault();
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelected((s) => Math.min(s + 1, filtered.length - 1));
@@ -86,6 +94,7 @@ export function CommandPalette({
         className="palette"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
+        aria-modal="true"
         aria-label="Command palette"
       >
         <div className="palette-input-row">

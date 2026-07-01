@@ -12,9 +12,13 @@ export function Toasts() {
   const { toasts, dismiss } = useToast();
   if (toasts.length === 0) return null;
   return (
-    <div className="toast-stack" role="status" aria-live="polite">
+    <div className="toast-stack">
       {toasts.map((t) => (
-        <div key={t.id} className={`toast toast-${t.kind}`}>
+        <div
+          key={t.id}
+          className={`toast toast-${t.kind}`}
+          role={t.kind === "error" ? "alert" : "status"}
+        >
           <Icon name={ICON[t.kind]} />
           <span className="toast-text">{t.text}</span>
           <button

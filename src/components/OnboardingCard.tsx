@@ -45,7 +45,7 @@ export function OnboardingCard({
           <Icon name="sparkles" /> Get set up
         </h3>
         <button className="btn btn-sm btn-ghost" onClick={onDismiss}>
-          <Icon name="x" /> dismiss
+          <Icon name="x" /> Dismiss
         </button>
       </div>
 
@@ -74,7 +74,7 @@ export function OnboardingCard({
         </Step>
 
         <Step done={false} label="Project your config">
-          <button className="btn btn-sm" onClick={onGoConfig}>
+          <button className="btn btn-primary btn-sm" onClick={onGoConfig}>
             <Icon name="arrowRight" /> Open Config
           </button>
         </Step>

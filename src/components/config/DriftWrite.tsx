@@ -70,14 +70,14 @@ export function DriftWrite({
 }) {
   const [onDisk, setOnDisk] = useState("");
   const [drift, setDrift] = useState<DriftState>({ phase: "idle" });
-  const [copied, setCopied] = useState(false);
+  const [applied, setApplied] = useState<null | "copied" | "manual">(null);
   const toast = useToast();
 
   // A new projection must be re-reviewed before it can be written.
   const serversKey = JSON.stringify(servers);
   useEffect(() => {
     setDrift({ phase: "idle" });
-    setCopied(false);
+    setApplied(null);
   }, [target, serversKey]);
 
   const reviewed = drift.phase === "done" || drift.phase === "error";
@@ -93,10 +93,10 @@ export function DriftWrite({
     if (!contents) return;
     try {
       await navigator.clipboard.writeText(contents);
-      setCopied(true);
+      setApplied("copied");
       toast.push("success", `Approved ${target} config copied`);
     } catch {
-      setCopied(true); // clipboard blocked in webview — the artifact is still shown above
+      setApplied("manual"); // clipboard blocked in webview — the artifact is still shown above
       toast.push("info", "Clipboard blocked — copy the previewed config manually");
     }
   };
@@ -140,10 +140,16 @@ export function DriftWrite({
           <Icon name="x" /> Drift check failed: {drift.message}
         </div>
       )}
-      {copied && (
+      {applied === "copied" && (
         <div className="callout callout-honesty">
           <Icon name="check" /> Approved config copied — paste it into the target's native file, then
           re-check drift to confirm it's in sync.
+        </div>
+      )}
+      {applied === "manual" && (
+        <div className="callout callout-warning">
+          <Icon name="alert" /> Clipboard was blocked — select the previewed config above and copy it
+          manually, then paste it into the target's native file and re-check drift.
         </div>
       )}
     </section>

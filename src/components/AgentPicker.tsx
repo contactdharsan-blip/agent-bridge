@@ -10,6 +10,7 @@ export function AgentPicker({
   selected,
   cwd,
   disabled,
+  connecting,
   onSelect,
   onCwdChange,
   onConnect,
@@ -18,6 +19,7 @@ export function AgentPicker({
   selected: string;
   cwd: string;
   disabled: boolean;
+  connecting: boolean;
   onSelect: (id: string) => void;
   onCwdChange: (cwd: string) => void;
   onConnect: () => void;
@@ -65,7 +67,15 @@ export function AgentPicker({
           onClick={onConnect}
           title={blocked ? "This agent reports an error — resolve it before connecting" : undefined}
         >
-          <Icon name="cpu" /> Connect
+          {connecting ? (
+            <>
+              <Icon name="refresh" /> Connecting…
+            </>
+          ) : (
+            <>
+              <Icon name="cpu" /> Connect
+            </>
+          )}
         </button>
       </div>
       {blocked && (
