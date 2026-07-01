@@ -4,60 +4,87 @@
 
 import { useCallback, useRef, useState } from "react";
 import * as ipc from "../ipc";
-import type { AgentEvent, ChatMessage, Decision, PendingEdit, SessionId } from "../types";
+import type {
+  AgentEvent,
+  ChatMessage,
+  Decision,
+  PendingEdit,
+  SessionId,
+  StopReason,
+} from "../types";
 
 let nextId = 1;
 const newId = () => nextId++;
 
+/** A capture in flight: the Profile panel runs the skill via `promptCapture` and
+ * gets back the completed assistant text (the emitted JSON) to validate. */
+interface Capture {
+  resolve: (text: string) => void;
+  reject: (reason: string) => void;
+  buf: string;
+}
+
 export interface AgentStream {
   session: SessionId | null;
+  agentId: string | null;
   messages: ChatMessage[];
   pendingEdit: PendingEdit | null;
   turnActive: boolean;
   error: string | null;
   connect: (agentId: string, cwd: string) => Promise<void>;
   prompt: (text: string) => Promise<void>;
+  /** Send a prompt and resolve with the completed assistant text (UI-FR19). */
+  promptCapture: (text: string) => Promise<string>;
   resolve: (decision: Decision) => Promise<void>;
+  cancel: () => Promise<void>;
 }
 
 export function useAgentStream(): AgentStream {
   const [session, setSession] = useState<SessionId | null>(null);
+  const [agentId, setAgentId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingEdit, setPendingEdit] = useState<PendingEdit | null>(null);
   const [turnActive, setTurnActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // rAF-batched assistant text: deltas accumulate in a ref and flush once per frame.
-  const bufRef = useRef("");
+  // rAF-batched streamed text: deltas accumulate in a ref and flush once per frame.
+  // Assistant answer and agent thoughts batch into separate buffers so they land
+  // in distinct bubbles (UI-FR3) rather than being folded together.
+  const answerBuf = useRef("");
+  const thoughtBuf = useRef("");
   const rafRef = useRef<number | null>(null);
+  const captureRef = useRef<Capture | null>(null);
 
   const flush = useCallback(() => {
     rafRef.current = null;
-    const chunk = bufRef.current;
-    bufRef.current = "";
-    if (!chunk) return;
-    setMessages((prev) => appendToAssistant(prev, chunk));
+    const answer = answerBuf.current;
+    const thought = thoughtBuf.current;
+    answerBuf.current = "";
+    thoughtBuf.current = "";
+    if (!answer && !thought) return;
+    setMessages((prev) => {
+      let next = prev;
+      if (thought) next = appendToRole(next, thought, "thought");
+      if (answer) next = appendToRole(next, answer, "assistant");
+      return next;
+    });
   }, []);
 
-  const onTextDelta = useCallback(
-    (text: string) => {
-      bufRef.current += text;
-      if (rafRef.current === null) {
-        rafRef.current = requestAnimationFrame(flush);
-      }
-    },
-    [flush],
-  );
+  const schedule = useCallback(() => {
+    if (rafRef.current === null) rafRef.current = requestAnimationFrame(flush);
+  }, [flush]);
 
   const onEvent = useCallback(
     (event: AgentEvent) => {
       switch (event.type) {
         case "textDelta":
-          onTextDelta(event.text);
+          answerBuf.current += event.text;
+          if (captureRef.current) captureRef.current.buf += event.text;
+          schedule();
           break;
         case "thought":
-          // M1 renders thoughts inline with the same batching as text.
-          onTextDelta(event.text);
+          thoughtBuf.current += event.text;
+          schedule();
           break;
         case "editHunk":
           setPendingEdit({
@@ -67,29 +94,40 @@ export function useAgentStream(): AgentStream {
             newText: event.newText,
           });
           break;
-        case "turnEnded":
+        case "turnEnded": {
           flush();
           setTurnActive(false);
+          const note = stopNote(event.stopReason);
+          if (note) pushSystem(setMessages, note);
+          if (captureRef.current) {
+            const cap = captureRef.current;
+            captureRef.current = null;
+            cap.resolve(cap.buf);
+          }
           break;
+        }
         case "error":
           flush();
           setTurnActive(false);
           setError(event.message);
-          setMessages((prev) => [
-            ...prev,
-            { id: newId(), role: "system", text: `Error: ${event.message}` },
-          ]);
+          pushSystem(setMessages, `Error: ${event.message}`);
+          if (captureRef.current) {
+            const cap = captureRef.current;
+            captureRef.current = null;
+            cap.reject(event.message);
+          }
           break;
       }
     },
-    [onTextDelta, flush],
+    [schedule, flush],
   );
 
   const connect = useCallback(
-    async (agentId: string, cwd: string) => {
+    async (id: string, cwd: string) => {
       setError(null);
-      const sid = await ipc.startSession(agentId, cwd, onEvent);
+      const sid = await ipc.startSession(id, cwd, onEvent);
       setSession(sid);
+      setAgentId(id);
     },
     [onEvent],
   );
@@ -97,14 +135,31 @@ export function useAgentStream(): AgentStream {
   const prompt = useCallback(
     async (text: string) => {
       if (!session) return;
-      setMessages((prev) => [
-        ...prev,
-        { id: newId(), role: "user", text },
-        { id: newId(), role: "assistant", text: "" },
-      ]);
+      setMessages((prev) => [...prev, { id: newId(), role: "user", text }]);
       setTurnActive(true);
       await ipc.sendPrompt(session, text);
     },
+    [session],
+  );
+
+  const promptCapture = useCallback(
+    (text: string) =>
+      new Promise<string>((resolve, reject) => {
+        if (!session) {
+          reject("No active session");
+          return;
+        }
+        captureRef.current = { resolve, reject, buf: "" };
+        setMessages((prev) => [...prev, { id: newId(), role: "user", text }]);
+        setTurnActive(true);
+        ipc.sendPrompt(session, text).catch((e) => {
+          if (captureRef.current) {
+            captureRef.current = null;
+          }
+          setTurnActive(false);
+          reject(String(e));
+        });
+      }),
     [session],
   );
 
@@ -114,27 +169,66 @@ export function useAgentStream(): AgentStream {
       const { requestId, path } = pendingEdit;
       setPendingEdit(null);
       await ipc.resolvePermission(requestId, decision);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: newId(),
-          role: "system",
-          text: `${decision === "accept" ? "Applied" : "Rejected"} edit to ${path}`,
-        },
-      ]);
+      pushSystem(
+        setMessages,
+        `${decision === "accept" ? "Applied" : "Rejected"} edit to ${path}`,
+      );
     },
     [pendingEdit],
   );
 
-  return { session, messages, pendingEdit, turnActive, error, connect, prompt, resolve };
+  const cancel = useCallback(async () => {
+    if (!session) return;
+    await ipc.cancel(session);
+    // The adapter should emit turnEnded(cancelled); settle optimistically so the
+    // composer re-enables even if the adapter is slow to acknowledge.
+    setTurnActive(false);
+  }, [session]);
+
+  return {
+    session,
+    agentId,
+    messages,
+    pendingEdit,
+    turnActive,
+    error,
+    connect,
+    prompt,
+    promptCapture,
+    resolve,
+    cancel,
+  };
 }
 
-/** Append text to the open assistant message, or start one if none is open. */
-function appendToAssistant(messages: ChatMessage[], chunk: string): ChatMessage[] {
+type SetMessages = React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+
+function pushSystem(setMessages: SetMessages, text: string) {
+  setMessages((prev) => [...prev, { id: newId(), role: "system", text }]);
+}
+
+/** Append text to the open message of `role`, or start a new one if the last
+ * message is a different role. Keeps interleaved thought/answer in own bubbles. */
+function appendToRole(
+  messages: ChatMessage[],
+  chunk: string,
+  role: ChatMessage["role"],
+): ChatMessage[] {
   const last = messages[messages.length - 1];
-  if (last && last.role === "assistant") {
+  if (last && last.role === role) {
     const updated = { ...last, text: last.text + chunk };
     return [...messages.slice(0, -1), updated];
   }
-  return [...messages, { id: newId(), role: "assistant", text: chunk }];
+  return [...messages, { id: newId(), role, text: chunk }];
+}
+
+/** Honest turn-end: every stop reason other than a clean end is surfaced, never
+ * silently swallowed (UI-NFR3, UI states matrix). */
+function stopNote(sr: StopReason): string | null {
+  if (sr === "endTurn") return null;
+  if (sr === "cancelled") return "Turn cancelled — output above may be incomplete.";
+  if (sr === "maxTokens") return "Turn ended: hit max tokens (response may be truncated).";
+  if (sr === "maxTurnRequests") return "Turn ended: hit the max tool-call rounds.";
+  if (sr === "refusal") return "Turn ended: the agent declined this request.";
+  if (typeof sr === "object" && "other" in sr) return `Turn ended: ${sr.other}.`;
+  return null;
 }

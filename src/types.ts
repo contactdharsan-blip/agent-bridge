@@ -45,10 +45,11 @@ export type AgentEvent =
       message: string;
     };
 
-/** A rendered chat message in the unified thread. */
+/** A rendered chat message in the unified thread. `thought` is the agent's
+ * reasoning, rendered distinctly from its answer (UI-FR3). */
 export interface ChatMessage {
   id: number;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | "thought";
   text: string;
 }
 

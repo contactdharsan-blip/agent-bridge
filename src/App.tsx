@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
 import { AgentPicker } from "./components/AgentPicker";
-import { DiffHunk } from "./components/DiffHunk";
-import { PromptInput } from "./components/PromptInput";
-import { ThreadView } from "./components/ThreadView";
+import { PanelEmpty } from "./components/PanelEmpty";
+import { RunView } from "./components/RunView";
+import { TabBar, type TabDef } from "./components/TabBar";
 import { useAgentStream } from "./hooks/useAgentStream";
 import { listAgents } from "./ipc";
 import type { AgentInfo } from "./types";
+
+const TABS: TabDef[] = [
+  { id: "run", label: "Run", icon: "cpu" },
+  { id: "config", label: "Config", icon: "config" },
+  { id: "handoff", label: "Handoff", icon: "handoff" },
+  { id: "profile", label: "Profile", icon: "user" },
+];
 
 export default function App() {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
@@ -13,6 +20,7 @@ export default function App() {
   const [cwd, setCwd] = useState<string>("");
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [tab, setTab] = useState<string>("run");
 
   const stream = useAgentStream();
 
@@ -40,9 +48,12 @@ export default function App() {
   const connected = stream.session !== null;
 
   return (
-    <div className="app">
+    <div className="app app-bg">
       <header className="app-header">
-        <h1>Agent Bridge</h1>
+        <div className="app-title">
+          <span className="app-mark" aria-hidden="true" />
+          <h1>Agent Bridge</h1>
+        </div>
         <AgentPicker
           agents={agents}
           selected={selected}
@@ -52,26 +63,46 @@ export default function App() {
           onCwdChange={setCwd}
           onConnect={connect}
         />
+        <TabBar tabs={TABS} active={tab} onChange={setTab} />
       </header>
 
-      {connectError && <div className="banner banner-error">{connectError}</div>}
+      {connectError && (
+        <div className="banner banner-error" role="alert">
+          {connectError}
+        </div>
+      )}
 
       <main className="app-main">
-        {connected ? (
-          <>
-            <ThreadView messages={stream.messages} />
-            {stream.pendingEdit && (
-              <DiffHunk edit={stream.pendingEdit} onResolve={stream.resolve} />
-            )}
-            <PromptInput
-              disabled={stream.turnActive || stream.pendingEdit !== null}
-              onSend={stream.prompt}
+        {tab === "run" && <RunView stream={stream} />}
+
+        {tab === "config" && (
+          <div className="panel">
+            <PanelEmpty
+              icon="config"
+              title="Config & Projection"
+              hint="Canonical editor with per-target preview, drift detection, and secret bindings — arriving next."
             />
-          </>
-        ) : (
-          <p className="app-hint">
-            Pick an agent and a working directory, then Connect to start a session.
-          </p>
+          </div>
+        )}
+
+        {tab === "handoff" && (
+          <div className="panel">
+            <PanelEmpty
+              icon="handoff"
+              title="Handoff Bridge"
+              hint="Carry-diff and reconstructed brief for switching agents mid-task — arriving next."
+            />
+          </div>
+        )}
+
+        {tab === "profile" && (
+          <div className="panel">
+            <PanelEmpty
+              icon="user"
+              title="Vibe-Coder Profile"
+              hint="Run the profile skill in-agent, merge with per-agent confidence, review continuity and gap-fills — arriving next."
+            />
+          </div>
         )}
       </main>
     </div>

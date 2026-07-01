@@ -15,10 +15,37 @@ Discipline (plan §6b): pure crates are 🟢 — write the test first, run it fo
 - [x] **M6 🔴 — Cursor as third agent.** DONE @ `fef0c36`. Registry entry (operator-overridable command); UI agent-agnostic so Cursor appears free; skip-guarded gate added.
 - [x] **M7 🟢/🟡 — Polish.** DONE. Drift detection (`0e1b6aa`), per-agent AuthStatus (`0e1b6aa`), keychain secrets + spawn resolution + security test, real macOS keychain verified (`01b2591`), Tauri IPC wiring for all engines + typed `engines.ts` (`f1badf2`), docs (this commit).
 
-## All milestones M3–M7 complete. Remaining = UI panels (next milestone) + operator tasks (`operator-todo.md`).
+## All milestones M3–M7 complete. Now building the post-M7 UI milestone (Client Surface PRD).
 
-### Next surface (not in M1–M7 scope)
-- React UI panels consuming the wired engine commands: config preview/diff, profile dashboard, continuity report, secret-binding manager. The Rust IPC + typed `engines.ts` contract exist and typecheck; the views are the next milestone.
+## Post-M7 UI milestone — Client Surface (`agent-bridge-ui-prd.md`) — IN PROGRESS
+
+Consumes only the 15 wired IPC commands (no backend/contract change; 🔴 core frozen).
+Verify each with `npm run typecheck && npm run build` (disk-cheap; never build src-tauri).
+
+Operator decisions (2026-07-01):
+- **Layout:** top tab bar (styled as the design system's glass segmented control).
+- **Config editing:** structured form over canonical entities + live projected preview.
+- **Honesty gates:** blocking acknowledge — drift diff reviewed before write; carry-diff seen before brief.
+- **Onboarding:** deferred to v1.1 → UI-FR28 (wizard) OUT this milestone; UI-FR27 (auth badges) IN.
+- **Design language:** adopt the Dark Liquid-Glass design system (`~/Downloads/identification med/DESIGN.md`)
+  via CSS tokens only — no Tailwind/Motion/lucide deps (disk-tight, Tauri). Spring feel via
+  `--transition-spring`; reveals via CSS keyframes; `prefers-reduced-motion` gated; inline-SVG icons (no emoji).
+
+Tasks (each = typecheck + build green, then commit):
+- [ ] **UI-1 Foundation.** Dark liquid-glass tokens in App.css; inline-SVG `Icon` set; glass tab shell
+      (Run/Config/Handoff/Profile); 3-state auth badges (connected/needsLogin/error, icon+text);
+      cancel in-flight turn; honest turn-end + distinct thought rendering; `useAgentStream` extensions
+      (`cancel`, `promptCapture`). (UI-FR1–8, UI-FR27)
+- [ ] **UI-2 Config / Projection panel.** Canonical form editor → `preview_mcp` (tool-ceiling warning) +
+      `preview_instructions` (equivalent-not-identical badge + fidelityNote) + `check_drift` (blocking review) +
+      `audit_secret_bindings` (`${VAR}` + resolvability, never a literal). (UI-FR9–15)
+- [ ] **UI-3 Handoff panel.** Client-side `ContextSnapshot` assembly + blocking carry-diff +
+      `build_handoff_brief` + honest "reconstructed brief" label + re-inject on target session. (UI-FR16–18)
+- [ ] **UI-4 Profile / Continuity panel.** Run-via-session capture → `validate_profile` (boundary reject) +
+      `merge_profiles` (per-agent weight AND confidence) + `recommend_features` + `workflow_continuity`
+      (4 buckets incl. genuinelyLost) + `gap_fills_for` (equivalent/approximation, source-before-install,
+      generated-skill as diff). (UI-FR19–26)
+- [ ] **UI-5 Docs + ship.** README + CLAUDE.md reflect the UI milestone; record UI-FR28 deferral. Push branch + summary.
 
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.
