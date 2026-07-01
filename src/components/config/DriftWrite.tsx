@@ -81,7 +81,10 @@ export function DriftWrite({
     setApplied(null);
   }, [target, serversKey]);
 
-  const reviewed = drift.phase === "done" || drift.phase === "error";
+  // Only a completed comparison unlocks the write gate — a FAILED drift check
+  // (backend error, unreadable paste, plain-browser mode) must not be treated
+  // as "reviewed", or a hand-edited native file could be clobbered unseen.
+  const reviewed = drift.phase === "done";
 
   const runCheck = () => {
     setDrift({ phase: "checking" });

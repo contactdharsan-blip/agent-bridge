@@ -8,6 +8,7 @@ import { ConfigPanel } from "./components/config/ConfigPanel";
 import { HandoffPanel } from "./components/handoff/HandoffPanel";
 import { Icon } from "./components/Icon";
 import { OnboardingCard } from "./components/OnboardingCard";
+import { OnboardingTour } from "./components/OnboardingTour";
 import { ProfilePanel } from "./components/profile/ProfilePanel";
 import { RunView } from "./components/RunView";
 import { TabBar, type TabDef } from "./components/TabBar";
@@ -73,6 +74,20 @@ export default function App() {
     save("settings.onboardingDismissed", onboardingDismissed);
   }, [onboardingDismissed]);
 
+  // First-launch guided walkthrough (UI-FR28). Opens once automatically, then
+  // stays replayable forever via the command palette and the header info button.
+  const [tourCompleted, setTourCompleted] = useState(() =>
+    load<boolean>("settings.tourCompleted", false),
+  );
+  const [tourOpen, setTourOpen] = useState(() => !load<boolean>("settings.tourCompleted", false));
+  useEffect(() => {
+    save("settings.tourCompleted", tourCompleted);
+  }, [tourCompleted]);
+  const closeTour = () => {
+    setTourOpen(false);
+    setTourCompleted(true);
+  };
+
   const [accent, setAccent] = useState<AccentName>(() =>
     load<AccentName>("settings.accent", "emerald"),
   );
@@ -89,6 +104,7 @@ export default function App() {
       { id: "tab-config", label: "Go to Config", hint: "2", run: () => setTab("config") },
       { id: "tab-handoff", label: "Go to Handoff", hint: "3", run: () => setTab("handoff") },
       { id: "tab-profile", label: "Go to Profile", hint: "4", run: () => setTab("profile") },
+      { id: "replay-tour", label: "Replay walkthrough", run: () => setTourOpen(true) },
     ];
     if (!connected && selected && cwd.trim()) {
       cmds.push({ id: "connect", label: `Connect to ${selected}`, run: connect });
@@ -104,6 +120,10 @@ export default function App() {
   // cancels an in-flight turn; number keys switch tabs when not typing in a field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // While the tour is open it drives tabs itself — don't let the palette
+      // shortcut or number-key tab switches fight it. Escape still closes the
+      // tour (Radix's own Dialog listener handles that independently).
+      if (tourOpen) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen((o) => !o);
@@ -131,7 +151,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [paletteOpen, stream]);
+  }, [paletteOpen, stream, tourOpen]);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -163,6 +183,32 @@ export default function App() {
                     transition={{ duration: 0.12 }}
                   >
                     Command palette
+                  </motion.div>
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+          <Tooltip.Provider delayDuration={400}>
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <button
+                  className="palette-trigger"
+                  onClick={() => setTourOpen(true)}
+                  aria-label="Replay walkthrough"
+                >
+                  <Icon name="info" />
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content asChild side="bottom" sideOffset={6}>
+                  <motion.div
+                    className="tooltip-content"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.12 }}
+                  >
+                    Replay walkthrough
                   </motion.div>
                 </Tooltip.Content>
               </Tooltip.Portal>
@@ -211,7 +257,7 @@ export default function App() {
             {tab === "run" && (
               <div className="panel">
                 <AnimatePresence>
-                  {!onboardingDismissed && (
+                  {!onboardingDismissed && !tourOpen && (
                     <OnboardingCard
                       agents={agents}
                       connected={connected}
@@ -254,6 +300,7 @@ export default function App() {
       </main>
     </div>
     <CommandPalette open={paletteOpen} commands={commands} onClose={() => setPaletteOpen(false)} />
+    <OnboardingTour open={tourOpen} onClose={closeTour} tab={tab} onTabChange={setTab} />
     <Toasts />
     </>
     </MotionConfig>

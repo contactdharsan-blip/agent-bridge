@@ -1599,6 +1599,12 @@ body {
   top: 50%;
   transform: translate(-50%, -50%);
 }
+/* Docked to the left when the highlighted target sits in the right half, so
+   the card never covers the element it's spotlighting. */
+.tour-card-left {
+  right: auto;
+  left: 1.5rem;
+}
 .tour-body {
   color: var(--color-text-secondary);
   font-size: var(--text-sm);

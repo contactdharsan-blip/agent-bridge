@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TOUR_STEPS } from "../data/tourSteps";
 import { Icon } from "./Icon";
 
@@ -33,6 +33,12 @@ export function OnboardingTour({
   onTabChange: (tab: string) => void;
 }) {
   const [stepIndex, setStepIndex] = useState(0);
+  // Target not in the DOM (e.g. thread/composer before a session connects) →
+  // fall back to a centered card instead of pointing at empty space.
+  const [missing, setMissing] = useState(false);
+  // Dock the card to the side opposite the target so it never covers it.
+  const [cardSide, setCardSide] = useState<"right" | "left">("right");
+  const primaryRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (open) setStepIndex(0);
@@ -45,6 +51,7 @@ export function OnboardingTour({
     if (!open || !step) return;
     const needsSwitch = step.tab !== tab;
     if (needsSwitch) onTabChange(step.tab);
+    setMissing(false);
     if (!step.selector) return;
 
     let highlighted: HTMLElement | null = null;
@@ -54,10 +61,23 @@ export function OnboardingTour({
     };
     const apply = () => {
       const el = document.querySelector<HTMLElement>(`[data-tour-step="${step.selector}"]`);
-      if (!el) return;
+      if (!el) {
+        setMissing(true);
+        return;
+      }
       el.classList.add("tour-highlight");
       highlighted = el;
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Dock the card to the side opposite the target's half so it never
+      // covers the element it spotlights (e.g. the tall right-column
+      // config-preview / handoff-diff panels).
+      const r = el.getBoundingClientRect();
+      setCardSide(r.left + r.width / 2 > window.innerWidth / 2 ? "left" : "right");
+      // Gate the native smooth scroll on the OS reduced-motion preference —
+      // MotionConfig (framer-only) and the CSS prefers-reduced-motion block
+      // can't reach a JS scrollIntoView. Optional-chain matchMedia so jsdom
+      // (npm test) doesn't throw.
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
     };
 
     // After a tab switch, wait for the target to mount before highlighting it;
@@ -71,9 +91,19 @@ export function OnboardingTour({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, stepIndex]);
 
+  // Focus the primary action each step so Enter advances the tour (Radix would
+  // otherwise land focus on Skip, making Enter dismiss the whole walkthrough).
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => primaryRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [open, stepIndex]);
+
   const finish = () => {
     onClose();
   };
+  const goNext = () => (last ? finish() : setStepIndex((i) => i + 1));
+  const goBack = () => setStepIndex((i) => Math.max(0, i - 1));
 
   if (!step) return null;
 
@@ -93,8 +123,25 @@ export function OnboardingTour({
             </Dialog.Overlay>
             <Dialog.Content
               forceMount
-              className={"tour-card" + (step.selector ? "" : " tour-card-centered")}
+              className={
+                "tour-card" +
+                (!step.selector || missing
+                  ? " tour-card-centered"
+                  : cardSide === "left"
+                    ? " tour-card-left"
+                    : "")
+              }
               onInteractOutside={(e) => e.preventDefault()}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowRight") {
+                  e.preventDefault();
+                  goNext();
+                } else if (e.key === "ArrowLeft" && stepIndex > 0) {
+                  e.preventDefault();
+                  goBack();
+                }
+              }}
             >
               <AnimatePresence mode="wait">
                 <motion.div
@@ -108,7 +155,11 @@ export function OnboardingTour({
                     <Icon name="sparkles" /> {step.title}
                   </Dialog.Title>
                   <Dialog.Description className="tour-body">{step.body}</Dialog.Description>
-                  <div className="tour-dots" aria-hidden="true">
+                  <div
+                    className="tour-dots"
+                    role="img"
+                    aria-label={`Step ${stepIndex + 1} of ${TOUR_STEPS.length}`}
+                  >
                     {TOUR_STEPS.map((s, i) => (
                       <span
                         key={s.id}
@@ -123,14 +174,15 @@ export function OnboardingTour({
                     <div className="tour-actions-nav">
                       <button
                         className="btn btn-sm"
-                        onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+                        onClick={goBack}
                         disabled={stepIndex === 0}
                       >
                         Back
                       </button>
                       <button
+                        ref={primaryRef}
                         className="btn btn-primary btn-sm"
-                        onClick={() => (last ? finish() : setStepIndex((i) => i + 1))}
+                        onClick={goNext}
                       >
                         {last ? (
                           <>
