@@ -1,16 +1,11 @@
 import type { McpProjection, ProjectionWarning, Target } from "../../engineTypes";
 import { Icon } from "../Icon";
 import type { AsyncState } from "./hooks";
+import { TARGET_FILE } from "./targets";
 
 // Read-only preview of a target's projected MCP config (UI-FR10), with the
 // cumulative tool count and the Cursor ~40-tool ceiling warning surfaced inline
 // before any write (UI-FR11).
-
-const TARGET_FILE: Record<Target, string> = {
-  claude: ".mcp.json",
-  codex: ".codex/config.toml",
-  cursor: ".cursor/mcp.json",
-};
 
 function warningText(w: ProjectionWarning): string {
   if (w.code === "cursorToolCeiling")

@@ -4,6 +4,7 @@ import { checkDrift } from "../../engines";
 import type { DriftStatus, McpServer, Target } from "../../engineTypes";
 import { useToast } from "../../state/toast";
 import { Icon } from "../Icon";
+import { TARGET_FILE } from "./targets";
 
 // Drift detection + the reviewed write (UI-FR13/14). The honesty gate is BLOCKING:
 // the projected config can't be applied until the on-disk file has been compared,
@@ -160,8 +161,8 @@ export function DriftWrite({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18 }}
         >
-          <Icon name="check" /> Approved config copied — paste it into the target's native file, then
-          re-check drift to confirm it's in sync.
+          <Icon name="check" /> Approved {target} config copied — paste it into{" "}
+          <code>{TARGET_FILE[target]}</code>, then re-check drift to confirm it's in sync.
         </motion.div>
       )}
       {applied === "manual" && (
@@ -172,7 +173,7 @@ export function DriftWrite({
           transition={{ duration: 0.18 }}
         >
           <Icon name="alert" /> Clipboard was blocked — select the previewed config above and copy it
-          manually, then paste it into the target's native file and re-check drift.
+          manually, then paste it into <code>{TARGET_FILE[target]}</code> and re-check drift.
         </motion.div>
       )}
     </section>
