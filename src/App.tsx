@@ -3,6 +3,7 @@ import { AgentPicker } from "./components/AgentPicker";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { ConfigPanel } from "./components/config/ConfigPanel";
 import { HandoffPanel } from "./components/handoff/HandoffPanel";
+import { OnboardingCard } from "./components/OnboardingCard";
 import { ProfilePanel } from "./components/profile/ProfilePanel";
 import { RunView } from "./components/RunView";
 import { TabBar, type TabDef } from "./components/TabBar";
@@ -58,6 +59,14 @@ export default function App() {
   };
 
   const connected = stream.session !== null;
+  const hasProfile = load<unknown[]>("profiles", []).length > 0;
+
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() =>
+    load<boolean>("settings.onboardingDismissed", false),
+  );
+  useEffect(() => {
+    save("settings.onboardingDismissed", onboardingDismissed);
+  }, [onboardingDismissed]);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -141,7 +150,21 @@ export default function App() {
       )}
 
       <main className="app-main">
-        {tab === "run" && <RunView stream={stream} />}
+        {tab === "run" && (
+          <div className="panel">
+            {!onboardingDismissed && (
+              <OnboardingCard
+                agents={agents}
+                connected={connected}
+                hasProfile={hasProfile}
+                onGoConfig={() => setTab("config")}
+                onGoProfile={() => setTab("profile")}
+                onDismiss={() => setOnboardingDismissed(true)}
+              />
+            )}
+            <RunView stream={stream} />
+          </div>
+        )}
 
         {tab === "config" && (
           <div className="panel">

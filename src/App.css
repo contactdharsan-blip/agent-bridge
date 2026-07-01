@@ -1180,6 +1180,79 @@ body {
   cursor: pointer;
 }
 
+/* ---- Onboarding ------------------------------------------------------------- */
+.onboarding {
+  flex: 0 0 auto;
+}
+.onboarding-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.onboarding-head .card-title {
+  margin: 0;
+}
+.onboard-steps {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.onboard-step {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.onboard-step-icon {
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  color: var(--color-text-tertiary);
+  margin-top: 0.05rem;
+}
+.onboard-done .onboard-step-icon {
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.12);
+}
+.onboard-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.onboard-step-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.onboard-done .onboard-step-label {
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+}
+.onboard-agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.onboard-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+.onboard-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-tertiary);
+}
+
 /* ---- Command palette + kbd -------------------------------------------------- */
 .kbd {
   font-family: "JetBrains Mono", ui-monospace, monospace;
