@@ -15,7 +15,7 @@ export function ThreadView({ messages, busy }: { messages: ChatMessage[]; busy?:
   return (
     // aria-live=polite: streamed deltas are announced to screen readers without
     // flooding on every token (UI-NFR6).
-    <div className="thread" aria-live="polite">
+    <div className="thread" data-tour-step="thread" aria-live="polite">
       {messages.length === 0 && (
         <p className="thread-empty">Send a prompt to start the conversation.</p>
       )}

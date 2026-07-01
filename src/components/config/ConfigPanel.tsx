@@ -32,8 +32,8 @@ export function ConfigPanel() {
         <SecretBindings servers={store.servers} />
       </div>
 
-      <div className="config-preview-col">
-        <div className="target-selector" role="group" aria-label="Projection target">
+      <div className="config-preview-col" data-tour-step="config-preview">
+        <div className="target-selector" data-tour-step="target-selector" role="group" aria-label="Projection target">
           {TARGETS.map((t) => (
             <button
               key={t.id}

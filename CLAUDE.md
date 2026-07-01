@@ -8,7 +8,7 @@ The two source-of-truth documents remain binding architecture:
 
 - `agent-bridge-prd.md` — product requirements (what to build, for whom, success metrics). §13 is the expanded feature set (FR24–FR50).
 - `agent-bridge-plan.md` — architecture, the two-engine model, milestones, and the vibecoding execution playbook. **Read §0, §1, §6, and §6b before writing any code.**
-- `agent-bridge-ui-prd.md` — the Client Surface (UI/UX) PRD (UI-FR1–28): the four-tab frontend that consumes the 15 wired IPC commands. Now implemented (UI-1…UI-4); onboarding wizard (UI-FR28) deferred.
+- `agent-bridge-ui-prd.md` — the Client Surface (UI/UX) PRD (UI-FR1–28): the four-tab frontend that consumes the 15 wired IPC commands. Now implemented (UI-1…UI-4), including the UI-FR28 onboarding tour.
 - `tasks/todo.md` (engineering backlog) and `tasks/operator-todo.md` (human-only steps: secrets, signing, product decisions).
 
 What exists now — the 🔴 runtime spine plus the 🟢/🟡 pure engines that are the moat:
@@ -50,9 +50,11 @@ The `acp-host` public API + its transport tests are **frozen** (plan §6b): chan
 The four-tab React UI that *consumes* the wired engine commands is implemented (`agent-bridge-ui-prd.md`, UI-FR1–26): the Run shell (tabs, auth badges, cancel, honest turn-end), the Config/Projection panel (canonical form editor → per-target preview + Cursor tool-ceiling + equivalent-not-identical instructions + **blocking** drift review + secret-binding manager), the Handoff panel (snapshot → blocking carry-diff → reconstructed brief → re-inject), and the Profile/Continuity dashboard (run-via-session → `validate_profile` → merge with per-agent confidence → recommendations + four-bucket continuity + equivalent/approximation gap-fills). Verify with `npm run typecheck && npm run build` (hermetic, disk-cheap — no Tauri build). The honesty affordances (NFR2) are hard UI requirements and are all sourced from real backend fields, never hard-coded copy — do not weaken them.
 
 ### What's left (not yet built)
-- **UI-FR28 onboarding wizard** — deferred to a later milestone (per-agent auth badges + docs link cover setup for now).
 - **Actual native-config disk writes** — the Config panel reviews + copies the approved artifact; a real Tauri-fs write is outside the 15-command engine boundary by design (a fs-plugin follow-up, not a core change).
 - Operator/product items in `tasks/operator-todo.md` (signing, marketplace curation, pricing).
+
+### Onboarding tour (UI-FR28, shipped)
+`OnboardingTour.tsx` is a first-launch guided walkthrough (`settings.tourCompleted` in localStorage), replayable anytime via the command palette ("Replay walkthrough") or the header info button. It drives the real tab underneath each step (`onTabChange`) and spotlights the real DOM element via `data-tour-step` attributes — never a mock screenshot. The spotlight box is measured with `getBoundingClientRect` and rendered in the tour's own Radix portal rather than as a class on the target element itself, because the target sits under framer-motion's animated tab panel and glass-card `backdrop-filter`, both of which establish their own stacking contexts that would cap a z-index set directly on it. `OnboardingCard.tsx` (the inline Run-tab checklist) is unchanged and coexists with it — the tour teaches once, the card stays as an ongoing checklist. The Profile Skill itself is now a public repo (`agent-bridge-profile-skill`), wired into `crates/profile/src/gapfill.rs`'s gap-fill recommendation and linked directly from the Profile tab.
 
 ## What this is
 

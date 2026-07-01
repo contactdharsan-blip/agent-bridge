@@ -94,7 +94,10 @@ fn capability_index() -> Vec<CapabilityGap> {
             native_to: Agent::Claude,
             missing_from: &[Agent::Codex, Agent::Cursor],
             equivalence: Equivalence::Equivalent,
-            bundled: Some(("agent-bridge-profile", "bundled:skills/profile")),
+            bundled: Some((
+                "agent-bridge-profile",
+                "https://github.com/contactdharsan-blip/agent-bridge-profile-skill",
+            )),
         },
         // /context reads the live token window — a skill can only estimate from
         // observable history → approximation, generated.

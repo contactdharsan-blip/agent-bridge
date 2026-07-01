@@ -23,7 +23,8 @@ crates/projection/ 🟢 Projection Engine: MCP/instructions/skills + drift detec
 crates/handoff/    🟡 Handoff Bridge: ContextSnapshot → honest opening brief
 crates/profile/    🟡 cross-agent profile: schema, merge, gap-filling, continuity
 crates/secrets/    🟡 keychain storage + spawn-time secret resolution
-skills/profile/    the authored Profile Skill (SKILL.md + JSON Schema + script)
+skills/profile/    the authored Profile Skill (SKILL.md + JSON Schema + script);
+                   mirrored to the public github.com/contactdharsan-blip/agent-bridge-profile-skill
 src-tauri/         Tauri v2 app crate (commands.rs + engines.rs IPC glue)
 src/               React + TypeScript frontend (one agent-agnostic UI, 4 tabs)
 tests-e2e/         live smoke script
@@ -53,21 +54,27 @@ commands (`src/ipc.ts` runtime, `src/engines.ts` engines) — no per-agent branc
 - **Handoff** — assemble a `ContextSnapshot`, review a blocking carry-diff (what
   carries vs the live memory that stays behind), then switch via a brief that is
   explicitly labeled *reconstructed, not resumed*.
-- **Profile** — run the profile skill inside an agent session (or paste JSON),
-  validate at the boundary, merge with **per-agent confidence** shown, and review
-  recommendations, a four-bucket continuity report, and gap-fills marked
-  *equivalent vs approximation* (source shown before install, generated skills as
-  reviewable diffs).
+- **Profile** — run the profile skill inside an agent session (or paste JSON,
+  the only thing a user ever has to do by hand), validate at the boundary,
+  merge with **per-agent confidence** shown, and review recommendations, a
+  four-bucket continuity report, and gap-fills marked *equivalent vs
+  approximation* — sources are real, reviewable URLs (the bundled Profile
+  Skill gap-fill points at the public repo above), never a bare label.
 
-Cross-cutting affordances (UI-PRD §11 v1.1): a **⌘K command palette** + tab
-hotkeys (1–4), **toasts** for every action/failure, **local persistence** of the
-canonical store / collected profiles / settings, an inline **onboarding** checklist,
-**profile export/import** (import re-validated at the boundary), and **accent
-theming** (emerald / sky / violet).
+Cross-cutting affordances (UI-PRD §11 v1.1, UI-FR28): a **⌘K command palette** +
+tab hotkeys (1–4), **toasts** for every action/failure, **local persistence** of
+the canonical store / collected profiles / settings, a first-launch **onboarding
+tour** (spotlights the real UI across all four tabs, replayable via the palette
+or the header info button) plus the inline Run-tab checklist, **profile
+export/import** (import re-validated at the boundary), and **accent theming**
+(emerald / sky / violet).
 
-The look is the product-agnostic **Dark Liquid-Glass** design system (adopted as
-CSS tokens only — no Tailwind/Motion deps; spring motion is gated by
-`prefers-reduced-motion`). The React views are verified by `npm run typecheck`,
+The look is the product-agnostic **Dark Liquid-Glass** design system: CSS tokens
+as the base layer, `framer-motion` for transitions and `@radix-ui/react-*` for
+accessible primitives (tabs, tooltip, dialog) — all motion gated through a root
+`MotionConfig reducedMotion="user"`, honesty gates never animated in a way that
+lets them be skipped or obscured, and the hand-authored inline-SVG `Icon` set
+kept over an icon library. The React views are verified by `npm run typecheck`,
 `npm run build`, and `npm test` (a hermetic Vitest suite over the pure client-side
 glue plus an App render smoke) — all disk-cheap, no Tauri build required.
 

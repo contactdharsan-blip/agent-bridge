@@ -25,7 +25,7 @@ export function RunView({ stream }: { stream: AgentStream }) {
     <div className="run">
       <ThreadView messages={stream.messages} busy={stream.turnActive} />
       {stream.pendingEdit && <DiffHunk edit={stream.pendingEdit} onResolve={stream.resolve} />}
-      <div className="composer">
+      <div className="composer" data-tour-step="composer">
         <PromptInput disabled={composerDisabled} onSend={stream.prompt} />
         {stream.turnActive && (
           <button

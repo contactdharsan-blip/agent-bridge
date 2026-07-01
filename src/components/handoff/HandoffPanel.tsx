@@ -108,7 +108,7 @@ export function HandoffPanel({
             what gets reconstructed for the next agent.
           </p>
 
-          <div className="handoff-target-row">
+          <div className="handoff-target-row" data-tour-step="handoff-target-row">
             <label className="field-inline">
               Switch to
               <select value={target} onChange={(e) => setTarget(e.target.value)}>
@@ -163,7 +163,7 @@ export function HandoffPanel({
         </div>
       </div>
 
-      <div className="handoff-diff-col">
+      <div className="handoff-diff-col" data-tour-step="handoff-diff">
         <CarryDiff snapshot={snapshot} targetAgent={target} canSwitch={canSwitch} onSwitch={doSwitch} />
       </div>
     </div>

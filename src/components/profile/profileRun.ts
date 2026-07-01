@@ -6,6 +6,11 @@ import type { CoderProfile } from "../../engineTypes";
 // prompt; the emitted JSON is captured from the stream and validated at the boundary.
 export const PROFILE_PROMPT = `Run the "profile" skill for this project: analyze my recent local coding history and emit a single CoderProfile JSON object conforming to the profile schema (fields: schemaVersion, agent, data{sessionsAnalyzed,daysCovered,messagesAnalyzed}, taskMix, frictionPoints, repeatedInstructions, toolUsage, efficiency, strengths, agentAffinity, signatures). Output ONLY the JSON object — no prose, no code fences.`;
 
+// Mirrors the bundled source in crates/profile/src/gapfill.rs — the public,
+// reviewable home of the skill this panel runs (FR22b: review the source
+// before installing anything).
+export const PROFILE_SKILL_REPO_URL = "https://github.com/contactdharsan-blip/agent-bridge-profile-skill";
+
 /** Pull the first balanced-looking JSON object out of a possibly-chatty reply so
  * it can be handed to validate_profile. Returns null if there's no object. */
 export function extractJson(text: string): string | null {

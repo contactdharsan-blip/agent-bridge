@@ -30,7 +30,7 @@ export function AgentPicker({
   const blocked = current?.authStatus === "error";
 
   return (
-    <div className="agent-surface">
+    <div className="agent-surface" data-tour-step="agent-picker">
       <div className="agent-status-strip">
         {agents.map((a) => (
           <span key={a.id} className="agent-chip">

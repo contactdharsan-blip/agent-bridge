@@ -24,7 +24,7 @@ import { PanelEmpty } from "../PanelEmpty";
 import { ContinuityView } from "./ContinuityView";
 import { MergedView } from "./MergedView";
 import { ProfileCollector } from "./ProfileCollector";
-import { dominantProfile } from "./profileRun";
+import { dominantProfile, PROFILE_SKILL_REPO_URL } from "./profileRun";
 
 const EMPTY: AsyncState<never> = { data: null, loading: false, error: null };
 
@@ -139,8 +139,8 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
 
   return (
     <div className="profile-panel">
-      <div className="profile-collect-col">
-        <div className="profile-toolbar">
+      <div className="profile-collect-col" data-tour-step="profile-collector">
+        <div className="profile-toolbar" data-tour-step="profile-toolbar">
           <button className="btn btn-sm" onClick={exportProfiles} disabled={profiles.length === 0}>
             <Icon name="arrowRight" /> Export
           </button>
@@ -163,6 +163,15 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
           <Icon name="shield" />
           <span>Stays on this machine — only aggregate profile JSON, never transcripts or source.</span>
         </div>
+        <a
+          className="btn btn-sm btn-ghost"
+          data-tour-step="skill-repo-link"
+          href={PROFILE_SKILL_REPO_URL}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Icon name="arrowRight" /> View the Profile Skill source
+        </a>
         <ProfileCollector
           stream={stream}
           collected={profiles}
