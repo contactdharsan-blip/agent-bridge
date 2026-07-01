@@ -44,7 +44,9 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
   useEffect(() => {
     save("profiles", profiles);
   }, [profiles]);
-  const [target, setTarget] = useState<Agent>("codex");
+  // Default the continuity target to the agent with the most collected data
+  // rather than a hardcoded one, so it reflects what the user actually profiled.
+  const [target, setTarget] = useState<Agent>(() => dominantProfile(profiles)?.agent ?? "claude");
 
   const [merged, setMerged] = useState<MergedProfile | null>(null);
   const [mergeError, setMergeError] = useState<string | null>(null);

@@ -51,7 +51,7 @@ export const TOUR_STEPS: TourStep[] = [
     tab: "config",
     selector: "config-preview",
     title: "Review before it's real",
-    body: "The preview is generate-only — nothing touches disk until you review it. If the target's native config already drifted from canonical, you'll hit a blocking drift review here before anything projects.",
+    body: "The preview re-projects live as you edit — nothing touches disk. When you're ready to apply, the Drift review card below is a blocking gate: paste the current on-disk file, compare, then copy the approved config. That's how a hand-edited native file is never silently clobbered.",
   },
   {
     id: "handoff-target-row",
