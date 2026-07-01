@@ -15,6 +15,7 @@ import type {
 } from "../../engineTypes";
 import type { AgentStream } from "../../hooks/useAgentStream";
 import { useCanonical } from "../../state/canonical";
+import { load, save } from "../../state/persist";
 import type { AsyncState } from "../config/hooks";
 import { Icon } from "../Icon";
 import { PanelEmpty } from "../PanelEmpty";
@@ -31,7 +32,14 @@ const EMPTY: AsyncState<never> = { data: null, loading: false, error: null };
 // only aggregate JSON ever leaves a session.
 export function ProfilePanel({ stream }: { stream: AgentStream }) {
   const store = useCanonical();
-  const [profiles, setProfiles] = useState<CoderProfile[]>([]);
+  // Persisted so collected profiles survive both a tab switch (the panel unmounts)
+  // and a reload (UI-FR30).
+  const [profiles, setProfiles] = useState<CoderProfile[]>(() =>
+    load<CoderProfile[]>("profiles", []),
+  );
+  useEffect(() => {
+    save("profiles", profiles);
+  }, [profiles]);
   const [target, setTarget] = useState<Agent>("codex");
 
   const [merged, setMerged] = useState<MergedProfile | null>(null);

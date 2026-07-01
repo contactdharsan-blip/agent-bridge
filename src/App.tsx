@@ -8,6 +8,7 @@ import { TabBar, type TabDef } from "./components/TabBar";
 import { Toasts } from "./components/Toasts";
 import { useAgentStream } from "./hooks/useAgentStream";
 import { listAgents } from "./ipc";
+import { load, save } from "./state/persist";
 import { useToast } from "./state/toast";
 import type { AgentInfo } from "./types";
 
@@ -24,7 +25,10 @@ export default function App() {
   const [cwd, setCwd] = useState<string>("");
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [tab, setTab] = useState<string>("run");
+  const [tab, setTab] = useState<string>(() => load<string>("settings.tab", "run"));
+  useEffect(() => {
+    save("settings.tab", tab);
+  }, [tab]);
 
   const stream = useAgentStream();
   const toast = useToast();

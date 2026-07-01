@@ -3,8 +3,16 @@
 // Lifted into context so the Config panel edits it while the Profile/Continuity
 // panel reads the same `Canonical` that `workflow_continuity` consumes.
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Canonical, Instructions, McpServer } from "../engineTypes";
+import { load, save } from "./persist";
+
+interface PersistedCanonical {
+  servers: McpServer[];
+  instructions: Instructions;
+  agentsMd: string;
+}
+const STORE_KEY = "canonical";
 
 export interface CanonicalStore {
   servers: McpServer[];
@@ -33,9 +41,19 @@ function blankServer(): McpServer {
 }
 
 export function CanonicalProvider({ children }: { children: ReactNode }) {
-  const [servers, setServers] = useState<McpServer[]>([]);
-  const [instructions, setInstr] = useState<Instructions>({ markdown: "" });
-  const [agentsMd, setAgentsMd] = useState<string>("");
+  const initial = load<PersistedCanonical>(STORE_KEY, {
+    servers: [],
+    instructions: { markdown: "" },
+    agentsMd: "",
+  });
+  const [servers, setServers] = useState<McpServer[]>(initial.servers);
+  const [instructions, setInstr] = useState<Instructions>(initial.instructions);
+  const [agentsMd, setAgentsMd] = useState<string>(initial.agentsMd);
+
+  // Persist locally on every change so edits survive a reload (UI-FR30).
+  useEffect(() => {
+    save<PersistedCanonical>(STORE_KEY, { servers, instructions, agentsMd });
+  }, [servers, instructions, agentsMd]);
 
   const store = useMemo<CanonicalStore>(
     () => ({
