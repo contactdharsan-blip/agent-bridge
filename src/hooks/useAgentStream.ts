@@ -185,6 +185,9 @@ export function useAgentStream(): AgentStream {
   const switchWithBrief = useCallback(
     async (targetAgent: string, cwd: string, brief: string) => {
       setError(null);
+      // Drop any unresolved edit from the outgoing agent — its requestId belongs to
+      // the abandoned session, so it must not stay actionable against the new one.
+      setPendingEdit(null);
       // Use the fresh session id directly — going through React state would race the
       // send against the not-yet-committed session.
       const sid = await ipc.startSession(targetAgent, cwd, onEvent);

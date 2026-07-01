@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ConfigValue, EnvVar, McpTransport } from "../../engineTypes";
 import { useCanonical } from "../../state/canonical";
 import { Icon } from "../Icon";
@@ -70,6 +71,9 @@ function StdioFields({
   onChange: (t: McpTransport) => void;
 }) {
   const setEnv = (env: EnvVar[]) => onChange({ ...transport, env });
+  // Keep the args as raw text locally so a controlled re-derive (split→filter→join)
+  // never eats a separating space mid-typing; split into the model on each change.
+  const [argsText, setArgsText] = useState(() => argsToText(transport.args));
   return (
     <>
       <label className="field-inline">
@@ -85,8 +89,11 @@ function StdioFields({
         <input
           type="text"
           placeholder="-y @modelcontextprotocol/server-github"
-          value={argsToText(transport.args)}
-          onChange={(e) => onChange({ ...transport, args: textToArgs(e.target.value) })}
+          value={argsText}
+          onChange={(e) => {
+            setArgsText(e.target.value);
+            onChange({ ...transport, args: textToArgs(e.target.value) });
+          }}
         />
       </label>
       <div className="env-list">

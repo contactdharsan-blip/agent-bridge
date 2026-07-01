@@ -86,8 +86,10 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
     }
   };
 
-  // Merge + recommendations recompute when the collected set changes.
-  const profileKey = JSON.stringify(profiles.map((p) => `${p.agent}:${p.data.messagesAnalyzed}`));
+  // Merge + recommendations recompute when the collected set changes — keyed on the
+  // full profile content, so replacing a same-agent/same-count profile with edited
+  // content doesn't leave the merge (and its per-agent confidence) stale.
+  const profileKey = JSON.stringify(profiles);
   useEffect(() => {
     if (profiles.length === 0) {
       setMerged(null);

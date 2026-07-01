@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { buildHandoffBrief } from "../../engines";
 import type { ContextSnapshot } from "../../engineTypes";
 import { Icon } from "../Icon";
@@ -49,6 +49,15 @@ export function CarryDiff({
   const [building, setBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acked, setAcked] = useState(false);
+
+  // Any edit to the snapshot invalidates a built+acknowledged brief, forcing a
+  // rebuild and re-ack so the sent brief always matches the reviewed carry-diff.
+  const snapshotKey = JSON.stringify(snapshot);
+  useEffect(() => {
+    setBrief(null);
+    setAcked(false);
+    setError(null);
+  }, [snapshotKey]);
 
   const build = () => {
     setBuilding(true);
