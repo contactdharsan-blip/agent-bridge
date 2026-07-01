@@ -70,6 +70,32 @@ Pure-frontend batch — no backend change, no Tauri build. Verify each with
 - Real native-config disk writes — needs a Tauri fs-plugin follow-up (touches Rust, disk-gated).
 - `tasks/operator-todo.md` — human-only items (keys, signing, marketplace curation, pricing).
 
+## v1.2 — animation/component libraries + desktop packaging (2026-07-01)
+
+Operator decision: superseded the zero-dep design-system rule (`framer-motion` +
+`@radix-ui/react-*` now allowed; see CLAUDE.md). Frontend-only except the last item.
+
+- [x] **CLAUDE.md** updated: allowed stack + honesty-gate/reduced-motion constraints that still bind.
+- [x] **TabBar** rebuilt on `@radix-ui/react-tabs` (real APG tablist); **CommandPalette** rebuilt on
+      `@radix-ui/react-dialog` (real focus-trap + restore); Tooltip on the palette trigger.
+- [x] **Animations**: root `MotionConfig reducedMotion="user"`; cross-fade between tab panels and for
+      the onboarding card (`AnimatePresence`); toast enter/exit; connect-button hover/tap +
+      spinning-while-connecting icon; drift-review/applied callouts fade in (gate logic untouched).
+      Verified: `npm run typecheck && npm run build && npm test` — 19/19 green. Committed `17a00c1`.
+- [x] **Desktop icons**: regenerated icns/ico from the existing 512x512 source via `tauri icon`,
+      pruned the iOS/Android/MSIX assets it also generates (native mobile still out of scope), wired
+      into `tauri.conf.json` bundle.icon. Committed `683239d`.
+- [x] **`.github/workflows/desktop-build.yml`**: manual + tag-triggered matrix — macOS builds the
+      `.dmg` natively, Windows builds the `.exe` (NSIS) natively. Not yet pushed/run.
+- [x] **Local macOS `.dmg`**: built (`target/release/bundle/dmg/Agent Bridge_0.1.0_aarch64.dmg`).
+      Tauri's Finder-styling AppleScript step needs a one-time Automation permission grant this
+      machine doesn't have (see lessons.md) — worked around with a direct `hdiutil create` (valid,
+      just unstyled). CI build on macos-latest won't hit this (fresh runner grants it automatically).
+- [ ] Windows `.exe` — not built locally by design; runs when the workflow fires on a windows-latest
+      runner (push a `v*.*.*` tag or trigger manually via Actions once this branch is pushed).
+- [ ] Grant Automation permission for Finder to the local host app (System Settings → Privacy &
+      Security → Automation) if a properly-styled local `.dmg` is wanted instead of the CI one.
+
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.
 - JSON Schema on every Profile Skill output — validate + reject at the boundary (M5b).
