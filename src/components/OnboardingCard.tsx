@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useCanonical } from "../state/canonical";
 import type { AgentInfo } from "../types";
 import { AuthBadge } from "./AuthBadge";
 import { Icon, type IconName } from "./Icon";
@@ -38,6 +39,14 @@ export function OnboardingCard({
   onDismiss: () => void;
 }) {
   const anyConnected = agents.some((a) => a.authStatus === "connected");
+  const canonical = useCanonical();
+  // Label is "Set up" not "Project": this proves the canonical config was
+  // edited, not that a projection was reviewed/copied — so the step stays
+  // literally honest while letting the checklist actually reach 4/4.
+  const hasConfig =
+    canonical.servers.length > 0 ||
+    canonical.instructions.markdown.trim().length > 0 ||
+    canonical.agentsMd.trim().length > 0;
 
   return (
     <motion.div
@@ -80,7 +89,7 @@ export function OnboardingCard({
           )}
         </Step>
 
-        <Step done={false} label="Project your config">
+        <Step done={hasConfig} label="Set up your config">
           <button className="btn btn-primary btn-sm" onClick={onGoConfig}>
             <Icon name="arrowRight" /> Open Config
           </button>
