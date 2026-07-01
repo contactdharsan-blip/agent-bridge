@@ -18,15 +18,16 @@ export function TabBar({
   active: string;
   onChange: (id: string) => void;
 }) {
+  // A group of buttons with aria-current, not a role="tablist" — declaring the tab
+  // role would promise APG arrow-key/roving-tabindex behavior this doesn't implement.
   return (
-    <div className="tabbar" role="tablist" aria-label="Panels">
+    <div className="tabbar" role="group" aria-label="Panels">
       {tabs.map((t) => {
         const selected = t.id === active;
         return (
           <button
             key={t.id}
-            role="tab"
-            aria-selected={selected}
+            aria-current={selected ? "page" : undefined}
             className={`tab ${selected ? "tab-active" : ""}`}
             onClick={() => onChange(t.id)}
           >

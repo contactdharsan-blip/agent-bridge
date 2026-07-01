@@ -44,6 +44,7 @@ function envValueControls(
           <input
             type="text"
             placeholder="ENV_VAR"
+            aria-label="Secret env var name"
             value={value.secret.kind === "env" ? value.secret.var : ""}
             onChange={(e) =>
               onChange({ type: "secret", secret: { kind: "env", var: e.target.value } })
@@ -55,6 +56,7 @@ function envValueControls(
         <input
           type="text"
           placeholder="value"
+          aria-label="Environment variable value"
           value={value.value}
           onChange={(e) => onChange({ type: "literal", value: e.target.value })}
         />
@@ -112,6 +114,7 @@ function StdioFields({
               className="env-key"
               type="text"
               placeholder="KEY"
+              aria-label="Environment variable name"
               value={ev.key}
               onChange={(e) =>
                 setEnv(transport.env.map((x, j) => (j === i ? { ...x, key: e.target.value } : x)))

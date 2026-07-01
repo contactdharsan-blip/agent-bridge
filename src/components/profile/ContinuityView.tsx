@@ -25,12 +25,11 @@ export function ContinuityView({
         <h3 className="card-title">
           <Icon name="handoff" /> Workflow continuity → {target}
         </h3>
-        <div className="target-selector" role="tablist" aria-label="Continuity target">
+        <div className="target-selector" role="group" aria-label="Continuity target">
           {TARGETS.map((t) => (
             <button
               key={t}
-              role="tab"
-              aria-selected={target === t}
+              aria-current={target === t ? "true" : undefined}
               className={`seg ${target === t ? "seg-active" : ""}`}
               onClick={() => onTarget(t)}
             >

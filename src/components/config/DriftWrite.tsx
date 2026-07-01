@@ -114,6 +114,7 @@ export function DriftWrite({
       <textarea
         className="ondisk-input"
         rows={4}
+        aria-label={`Current on-disk contents of ${target}'s native file`}
         placeholder={`current contents of ${target}'s native file (optional)`}
         value={onDisk}
         onChange={(e) => setOnDisk(e.target.value)}

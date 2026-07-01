@@ -21,6 +21,7 @@ export function PromptInput({
       <textarea
         value={text}
         disabled={disabled}
+        aria-label="Prompt"
         placeholder={disabled ? "Waiting for the agent…" : "Ask the agent to do something…"}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {

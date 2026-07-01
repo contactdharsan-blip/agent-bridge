@@ -94,16 +94,22 @@ export function CommandPalette({
             ref={inputRef}
             className="palette-input"
             placeholder="Type a command…"
+            aria-label="Command palette"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="palette-listbox"
+            aria-activedescendant={filtered[selected] ? `palette-opt-${filtered[selected].id}` : undefined}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
           />
         </div>
-        <ul className="palette-list" role="listbox">
+        <ul id="palette-listbox" className="palette-list" role="listbox">
           {filtered.length === 0 && <li className="palette-empty">No matching commands</li>}
           {filtered.map((c, i) => (
             <li
               key={c.id}
+              id={`palette-opt-${c.id}`}
               role="option"
               aria-selected={i === selected}
               className={`palette-item ${i === selected ? "palette-item-active" : ""}`}

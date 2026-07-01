@@ -86,6 +86,7 @@ export function ProfileCollector({
         <textarea
           className="ondisk-input"
           rows={3}
+          aria-label="Paste a CoderProfile JSON"
           placeholder='{ "schemaVersion": 1, "agent": "claude", ... }'
           value={paste}
           onChange={(e) => setPaste(e.target.value)}

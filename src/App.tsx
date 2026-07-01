@@ -138,7 +138,12 @@ export default function App() {
           <span className="app-mark" aria-hidden="true" />
           <h1>Agent Bridge</h1>
           <AccentSwitcher accent={accent} onChange={setAccent} />
-          <button className="palette-trigger" onClick={() => setPaletteOpen(true)} title="Command palette">
+          <button
+            className="palette-trigger"
+            onClick={() => setPaletteOpen(true)}
+            title="Command palette"
+            aria-label="Open command palette"
+          >
             <kbd className="kbd">⌘K</kbd>
           </button>
         </div>

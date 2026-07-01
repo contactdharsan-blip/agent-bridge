@@ -29,6 +29,7 @@ export function StringListEditor({
           <input
             type="text"
             placeholder={placeholder}
+            aria-label={`${label} ${i + 1}`}
             value={it}
             onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)))}
           />
@@ -68,6 +69,7 @@ export function TaskListEditor({
           <input
             type="text"
             placeholder="task"
+            aria-label={`Task ${i + 1}`}
             value={t.text}
             onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
           />
@@ -122,12 +124,14 @@ export function EditsEditor({
           <input
             type="text"
             placeholder="path/to/file"
+            aria-label={`Edited file ${i + 1}`}
             value={e.file}
             onChange={(ev) => onChange(items.map((x, j) => (j === i ? { ...x, file: ev.target.value } : x)))}
           />
           <input
             type="text"
             placeholder="what changed"
+            aria-label={`Edit ${i + 1} summary`}
             value={e.hunkSummary}
             onChange={(ev) =>
               onChange(items.map((x, j) => (j === i ? { ...x, hunkSummary: ev.target.value } : x)))

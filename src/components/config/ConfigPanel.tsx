@@ -33,12 +33,11 @@ export function ConfigPanel() {
       </div>
 
       <div className="config-preview-col">
-        <div className="target-selector" role="tablist" aria-label="Projection target">
+        <div className="target-selector" role="group" aria-label="Projection target">
           {TARGETS.map((t) => (
             <button
               key={t.id}
-              role="tab"
-              aria-selected={target === t.id}
+              aria-current={target === t.id ? "true" : undefined}
               className={`seg ${target === t.id ? "seg-active" : ""}`}
               onClick={() => setTarget(t.id)}
             >

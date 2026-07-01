@@ -5,9 +5,11 @@ import { MessageBubble } from "./MessageBubble";
 export function ThreadView({ messages, busy }: { messages: ChatMessage[]; busy?: boolean }) {
   const endRef = useRef<HTMLDivElement>(null);
 
-  // Keep the latest message in view as text streams in.
+  // Keep the latest message in view as text streams in — but honor reduced-motion,
+  // since this fires on every streamed delta (UI-NFR6).
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    endRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
   }, [messages, busy]);
 
   return (
