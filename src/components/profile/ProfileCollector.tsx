@@ -10,6 +10,8 @@ import { extractJson, PROFILE_PROMPT } from "./profileRun";
 // funneled through validate_profile so non-conforming JSON is rejected at the
 // boundary and can never enter the merge: run the skill in the live session, or
 // paste JSON emitted from an agent you ran it in manually.
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
 export function ProfileCollector({
   stream,
   collected,
@@ -23,17 +25,24 @@ export function ProfileCollector({
 }) {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Whether `error` is a validate_profile boundary rejection (schema) or some
+  // other failure (transport/IPC, or no JSON in the reply) — so the banner only
+  // claims "schema failure, not fabricated" when that's actually true.
+  const [reason, setReason] = useState<"schema" | "other">("other");
   const [paste, setPaste] = useState("");
   const toast = useToast();
 
   const runInSession = async () => {
     if (!stream.session) return;
     setError(null);
+    setReason("other");
     setRunning(true);
     try {
       const text = await stream.promptCapture(PROFILE_PROMPT);
       const json = extractJson(text);
       if (!json) throw new Error("No JSON object found in the agent's reply.");
+      // From here a throw is a validate_profile boundary rejection (schema).
+      setReason("schema");
       const profile = await validateProfile(json);
       onAdd(profile);
       toast.push("success", `Validated ${profile.agent} profile`);
@@ -47,6 +56,7 @@ export function ProfileCollector({
 
   const validatePaste = async () => {
     setError(null);
+    setReason("schema"); // this path can only fail inside validate_profile
     try {
       const profile = await validateProfile(paste);
       onAdd(profile);
@@ -98,7 +108,10 @@ export function ProfileCollector({
 
       {error && (
         <div className="callout callout-error">
-          <Icon name="x" /> Rejected at the boundary (schema failure, not a fabricated profile):{" "}
+          <Icon name="x" />{" "}
+          {reason === "schema"
+            ? "Rejected at the boundary (schema failure, not a fabricated profile): "
+            : "Couldn't add profile: "}
           {error}
         </div>
       )}
@@ -111,8 +124,8 @@ export function ProfileCollector({
                 <Icon name="check" /> {p.agent}
               </span>
               <span className="collected-vol">
-                {p.data.messagesAnalyzed} msgs · {p.data.sessionsAnalyzed} sessions ·{" "}
-                {p.data.daysCovered}d
+                {plural(p.data.messagesAnalyzed, "msg")} · {plural(p.data.sessionsAnalyzed, "session")}{" "}
+                · {p.data.daysCovered}d
               </span>
               <button
                 className="btn btn-sm btn-ghost icon-btn"

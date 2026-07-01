@@ -75,7 +75,13 @@ export function MergedView({
 
       <div className="merged-section">
         <span className="typo-label">Recommendations</span>
-        {recommendations === null && <div className="skeleton skeleton-block" aria-label="matching" />}
+        {recommendations === null && (
+          <div
+            className="skeleton skeleton-block"
+            role="status"
+            aria-label="Matching profile to features…"
+          />
+        )}
         {recommendations && recommendations.length === 0 && (
           <p className="card-sub">Profile too thin to recommend features yet.</p>
         )}

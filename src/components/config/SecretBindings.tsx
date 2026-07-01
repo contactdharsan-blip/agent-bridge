@@ -29,6 +29,10 @@ export function SecretBindings({ servers }: { servers: McpServer[] }) {
         <Icon name="key" /> Secret bindings
       </h4>
 
+      {!bindings && !error && (
+        <div className="skeleton skeleton-block" aria-label="checking secret resolvability" />
+      )}
+
       {error && (
         <div className="callout callout-error">
           <Icon name="x" /> {error}

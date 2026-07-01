@@ -76,6 +76,18 @@ function StdioFields({
   // Keep the args as raw text locally so a controlled re-derive (split→filter→join)
   // never eats a separating space mid-typing; split into the model on each change.
   const [argsText, setArgsText] = useState(() => argsToText(transport.args));
+  // Cards use key={index}, so deleting a non-last server reuses this component
+  // instance for the survivor that shifts into the freed index. Re-seed the raw
+  // text when the incoming server's args genuinely change (a swap) — but NOT
+  // during the user's own typing (where the tokenized text already matches
+  // transport.args, so this no-ops and the mid-typing space is preserved).
+  const [prevArgs, setPrevArgs] = useState(transport.args);
+  if (transport.args !== prevArgs) {
+    setPrevArgs(transport.args);
+    if (argsToText(textToArgs(argsText)) !== argsToText(transport.args)) {
+      setArgsText(argsToText(transport.args));
+    }
+  }
   return (
     <>
       <label className="field-inline">
@@ -103,6 +115,7 @@ function StdioFields({
           <span>Environment</span>
           <button
             className="btn btn-sm btn-ghost"
+            aria-label="Add env var"
             onClick={() => setEnv([...transport.env, { key: "", value: { type: "literal", value: "" } }])}
           >
             <Icon name="plus" /> env var

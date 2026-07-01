@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { GapFill } from "../../engineTypes";
 import { Icon } from "../Icon";
 
@@ -8,6 +8,7 @@ import { Icon } from "../Icon";
 // motivated it (NFR2.5). Nothing third-party is written unreviewed.
 export function GapFillItem({ gap }: { gap: GapFill }) {
   const [open, setOpen] = useState(false);
+  const skillId = useId();
   const equiv = gap.equivalence === "equivalent";
 
   return (
@@ -38,11 +39,20 @@ export function GapFillItem({ gap }: { gap: GapFill }) {
 
       {gap.resolution.kind === "generatedSkill" && (
         <div className="gapfill-resolution">
-          <button className="btn btn-sm" onClick={() => setOpen((o) => !o)}>
+          <button
+            className="btn btn-sm"
+            aria-expanded={open}
+            aria-controls={skillId}
+            onClick={() => setOpen((o) => !o)}
+          >
             <Icon name={open ? "minus" : "plus"} /> {open ? "Hide" : "Review"} generated skill:{" "}
             {gap.resolution.name}
           </button>
-          {open && <pre className="code-preview">{gap.resolution.skillMd}</pre>}
+          {open && (
+            <pre id={skillId} className="code-preview">
+              {gap.resolution.skillMd}
+            </pre>
+          )}
         </div>
       )}
 

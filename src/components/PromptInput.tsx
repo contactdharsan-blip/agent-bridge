@@ -22,7 +22,7 @@ export function PromptInput({
         value={text}
         disabled={disabled}
         aria-label="Prompt"
-        placeholder={disabled ? "Waiting for the agent…" : "Ask the agent to do something…"}
+        placeholder={disabled ? "Input paused — finish the current step…" : "Ask the agent to do something…"}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
