@@ -6,9 +6,13 @@ one accept/reject diff — with the agent chosen purely by config (zero per-agen
 branches in the UI) — plus pure engines that project your config into each
 agent's format, bridge context on switch, and build a cross-agent coder profile.
 
-Milestones M1–M7 are implemented. See `agent-bridge-prd.md` and
-`agent-bridge-plan.md` for the full vision, and `tasks/operator-todo.md` for the
-human-only steps that remain (secrets, signing, product decisions).
+Milestones M1–M7 (the engine layer) are implemented, and the **post-M7 client
+surface** (`agent-bridge-ui-prd.md`) is now built on top of them: a four-tab
+desktop UI — Run / Config / Handoff / Profile — that consumes the 15 wired IPC
+commands and nothing else. See `agent-bridge-prd.md` and `agent-bridge-plan.md`
+for the full vision, `agent-bridge-ui-prd.md` for the UI spec, and
+`tasks/operator-todo.md` for the human-only steps that remain (secrets, signing,
+product decisions).
 
 ## Layout
 
@@ -21,7 +25,7 @@ crates/profile/    🟡 cross-agent profile: schema, merge, gap-filling, continu
 crates/secrets/    🟡 keychain storage + spawn-time secret resolution
 skills/profile/    the authored Profile Skill (SKILL.md + JSON Schema + script)
 src-tauri/         Tauri v2 app crate (commands.rs + engines.rs IPC glue)
-src/               React + TypeScript frontend (one agent-agnostic UI)
+src/               React + TypeScript frontend (one agent-agnostic UI, 4 tabs)
 tests-e2e/         live smoke script
 ```
 
@@ -30,6 +34,37 @@ The core idea: the host translates every agent's ACP traffic into one
 crate touches `agent_client_protocol`, and the frontend never branches on which
 agent is running — adding an agent is a registry entry (`registry.rs`), not new
 rendering code.
+
+## Client surface
+
+One agent-agnostic desktop UI, four tabs, each a pure consumer of the wired IPC
+commands (`src/ipc.ts` runtime, `src/engines.ts` engines) — no per-agent branch:
+
+- **Run** — the unified thread/diff shell: streamed `AgentEvent`s, distinct thought
+  vs answer rendering, per-hunk accept/reject, a reachable Cancel, and honest
+  turn-end (cancelled / max-tokens / refusal are surfaced, never swallowed). A live
+  per-agent auth strip (connected / needs-login / error) blocks starting an
+  errored agent.
+- **Config** — canonical form editor with per-target live preview (Claude JSON /
+  Codex TOML / Cursor JSON), the Cursor ~40-tool ceiling warning, an
+  equivalent-not-identical instructions preview, a **blocking** drift review before
+  any write, and a secret-binding manager that shows `${VAR}` + resolvability but
+  never a literal token.
+- **Handoff** — assemble a `ContextSnapshot`, review a blocking carry-diff (what
+  carries vs the live memory that stays behind), then switch via a brief that is
+  explicitly labeled *reconstructed, not resumed*.
+- **Profile** — run the profile skill inside an agent session (or paste JSON),
+  validate at the boundary, merge with **per-agent confidence** shown, and review
+  recommendations, a four-bucket continuity report, and gap-fills marked
+  *equivalent vs approximation* (source shown before install, generated skills as
+  reviewable diffs).
+
+The look is the product-agnostic **Dark Liquid-Glass** design system (adopted as
+CSS tokens only — no Tailwind/Motion deps; spring motion is gated by
+`prefers-reduced-motion`). Onboarding (a first-run wizard, UI-FR28) is the one
+UI-PRD item deferred to a later milestone; per-agent auth badges cover setup
+visibility in the meantime. The React views are verified by `npm run typecheck`
+and `npm run build` (both hermetic and disk-cheap — no Tauri build required).
 
 ## Prerequisites
 

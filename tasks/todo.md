@@ -15,9 +15,9 @@ Discipline (plan §6b): pure crates are 🟢 — write the test first, run it fo
 - [x] **M6 🔴 — Cursor as third agent.** DONE @ `fef0c36`. Registry entry (operator-overridable command); UI agent-agnostic so Cursor appears free; skip-guarded gate added.
 - [x] **M7 🟢/🟡 — Polish.** DONE. Drift detection (`0e1b6aa`), per-agent AuthStatus (`0e1b6aa`), keychain secrets + spawn resolution + security test, real macOS keychain verified (`01b2591`), Tauri IPC wiring for all engines + typed `engines.ts` (`f1badf2`), docs (this commit).
 
-## All milestones M3–M7 complete. Now building the post-M7 UI milestone (Client Surface PRD).
+## All milestones M3–M7 complete. Post-M7 UI milestone (Client Surface) COMPLETE.
 
-## Post-M7 UI milestone — Client Surface (`agent-bridge-ui-prd.md`) — IN PROGRESS
+## Post-M7 UI milestone — Client Surface (`agent-bridge-ui-prd.md`) — COMPLETE (UI-1…UI-5)
 
 Consumes only the 15 wired IPC commands (no backend/contract change; 🔴 core frozen).
 Verify each with `npm run typecheck && npm run build` (disk-cheap; never build src-tauri).
@@ -41,11 +41,16 @@ Tasks (each = typecheck + build green, then commit):
       `audit_secret_bindings` (`${VAR}` + resolvability, never a literal). (UI-FR9–15)
 - [x] **UI-3 Handoff panel.** Client-side `ContextSnapshot` assembly + blocking carry-diff +
       `build_handoff_brief` + honest "reconstructed brief" label + re-inject on target session. (UI-FR16–18)
-- [ ] **UI-4 Profile / Continuity panel.** Run-via-session capture → `validate_profile` (boundary reject) +
+- [x] **UI-4 Profile / Continuity panel.** Run-via-session capture → `validate_profile` (boundary reject) +
       `merge_profiles` (per-agent weight AND confidence) + `recommend_features` + `workflow_continuity`
       (4 buckets incl. genuinelyLost) + `gap_fills_for` (equivalent/approximation, source-before-install,
       generated-skill as diff). (UI-FR19–26)
-- [ ] **UI-5 Docs + ship.** README + CLAUDE.md reflect the UI milestone; record UI-FR28 deferral. Push branch + summary.
+- [x] **UI-5 Docs + ship.** README + CLAUDE.md + lessons updated; UI-FR28 deferral recorded. Branch pushed.
+
+### Remaining after this milestone (not engineering backlog)
+- UI-FR28 onboarding wizard — deferred (auth badges + docs link cover setup).
+- Real native-config disk writes — needs a Tauri fs-plugin follow-up (outside the 15-command boundary; touches Rust → operator/next milestone, disk-gated).
+- `tasks/operator-todo.md` — human-only items (keys, signing, marketplace curation, pricing/product decisions).
 
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.

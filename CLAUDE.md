@@ -2,12 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: M1–M7 implemented (all milestones)
+## Project status: M1–M7 (engine layer) + the post-M7 client surface implemented
 
 The two source-of-truth documents remain binding architecture:
 
 - `agent-bridge-prd.md` — product requirements (what to build, for whom, success metrics). §13 is the expanded feature set (FR24–FR50).
 - `agent-bridge-plan.md` — architecture, the two-engine model, milestones, and the vibecoding execution playbook. **Read §0, §1, §6, and §6b before writing any code.**
+- `agent-bridge-ui-prd.md` — the Client Surface (UI/UX) PRD (UI-FR1–28): the four-tab frontend that consumes the 15 wired IPC commands. Now implemented (UI-1…UI-4); onboarding wizard (UI-FR28) deferred.
 - `tasks/todo.md` (engineering backlog) and `tasks/operator-todo.md` (human-only steps: secrets, signing, product decisions).
 
 What exists now — the 🔴 runtime spine plus the 🟢/🟡 pure engines that are the moat:
@@ -20,7 +21,7 @@ What exists now — the 🔴 runtime spine plus the 🟢/🟡 pure engines that 
 - `crates/secrets/` — 🟡 keychain storage + spawn-time `${VAR}` resolution; the literal token never touches disk (security test asserts it).
 - `skills/profile/` — the authored Profile Skill (`SKILL.md` + JSON Schema + gather script) the Projection Engine deploys into all three agents.
 - `src-tauri/` — Tauri v2 app; `commands.rs` (runtime shell) + `engines.rs` (thin IPC over the pure engines).
-- `src/` — React + TypeScript frontend; one agent-agnostic UI (zero per-agent branches); `ipc.ts` + `engines.ts` are the only IPC chokepoints.
+- `src/` — React + TypeScript frontend; one agent-agnostic UI (zero per-agent branches); `ipc.ts` + `engines.ts` are the only IPC chokepoints. Four tabs (`components/` + `components/config|handoff|profile/`): Run shell, Config/Projection, Handoff, Profile/Continuity. Canonical state lives in `state/canonical.tsx` (Context). Styling is the Dark Liquid-Glass design system in `App.css` (CSS tokens only — no Tailwind/Motion/lucide deps); icons are the inline-SVG `Icon` set (no emoji).
 
 ### Build / lint / test commands
 
@@ -45,8 +46,13 @@ ANTHROPIC_API_KEY=sk-... tests-e2e/smoke.sh claude
 
 The `acp-host` public API + its transport tests are **frozen** (plan §6b): change them only via the test-first, run-for-real ritual; adding an agent is a `registry.rs` row, not new code. `AGENT_BRIDGE_DEBUG_FRAMES=1` logs raw ACP traffic. The pure engines are 🟢/🟡 — verify by running their tests, not by reading diffs.
 
-### What's left (next surface, not yet built)
-Frontend UI panels that *consume* the wired engine commands (config preview/diff, profile dashboard, continuity report, secret-binding manager). The Rust IPC + typed `engines.ts` contract exist and typecheck; the React views are the next milestone.
+### Client surface (built — post-M7 UI milestone)
+The four-tab React UI that *consumes* the wired engine commands is implemented (`agent-bridge-ui-prd.md`, UI-FR1–26): the Run shell (tabs, auth badges, cancel, honest turn-end), the Config/Projection panel (canonical form editor → per-target preview + Cursor tool-ceiling + equivalent-not-identical instructions + **blocking** drift review + secret-binding manager), the Handoff panel (snapshot → blocking carry-diff → reconstructed brief → re-inject), and the Profile/Continuity dashboard (run-via-session → `validate_profile` → merge with per-agent confidence → recommendations + four-bucket continuity + equivalent/approximation gap-fills). Verify with `npm run typecheck && npm run build` (hermetic, disk-cheap — no Tauri build). The honesty affordances (NFR2) are hard UI requirements and are all sourced from real backend fields, never hard-coded copy — do not weaken them.
+
+### What's left (not yet built)
+- **UI-FR28 onboarding wizard** — deferred to a later milestone (per-agent auth badges + docs link cover setup for now).
+- **Actual native-config disk writes** — the Config panel reviews + copies the approved artifact; a real Tauri-fs write is outside the 15-command engine boundary by design (a fs-plugin follow-up, not a core change).
+- Operator/product items in `tasks/operator-todo.md` (signing, marketplace curation, pricing).
 
 ## What this is
 
