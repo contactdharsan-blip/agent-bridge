@@ -1,3 +1,4 @@
+import * as Tabs from "@radix-ui/react-tabs";
 import { Icon, type IconName } from "./Icon";
 
 // Top navigation, styled as the design system's glass "segmented control" (§7.4):
@@ -18,24 +19,18 @@ export function TabBar({
   active: string;
   onChange: (id: string) => void;
 }) {
-  // A group of buttons with aria-current, not a role="tablist" — declaring the tab
-  // role would promise APG arrow-key/roving-tabindex behavior this doesn't implement.
+  // Radix owns the APG tablist pattern (roving tabindex, arrow-key nav, aria-selected)
+  // that the hand-rolled version deliberately opted out of — see git history.
   return (
-    <div className="tabbar" role="group" aria-label="Panels">
-      {tabs.map((t) => {
-        const selected = t.id === active;
-        return (
-          <button
-            key={t.id}
-            aria-current={selected ? "page" : undefined}
-            className={`tab ${selected ? "tab-active" : ""}`}
-            onClick={() => onChange(t.id)}
-          >
+    <Tabs.Root value={active} onValueChange={onChange}>
+      <Tabs.List className="tabbar" aria-label="Panels">
+        {tabs.map((t) => (
+          <Tabs.Trigger key={t.id} value={t.id} className="tab">
             <Icon name={t.icon} />
             <span>{t.label}</span>
-          </button>
-        );
-      })}
-    </div>
+          </Tabs.Trigger>
+        ))}
+      </Tabs.List>
+    </Tabs.Root>
   );
 }

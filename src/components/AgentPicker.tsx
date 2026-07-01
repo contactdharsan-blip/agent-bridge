@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import type { AgentInfo } from "../types";
 import { AuthBadge } from "./AuthBadge";
 import { Icon } from "./Icon";
@@ -61,22 +62,28 @@ export function AgentPicker({
             onChange={(e) => onCwdChange(e.target.value)}
           />
         </label>
-        <button
+        <motion.button
           className="btn btn-primary btn-connect"
           disabled={disabled || blocked || !cwd.trim()}
           onClick={onConnect}
           title={blocked ? "This agent reports an error — resolve it before connecting" : undefined}
+          whileHover={disabled || blocked || !cwd.trim() ? undefined : { scale: 1.03 }}
+          whileTap={disabled || blocked || !cwd.trim() ? undefined : { scale: 0.97 }}
         >
           {connecting ? (
-            <>
-              <Icon name="refresh" /> Connecting…
-            </>
+            <motion.span
+              className="btn-connecting"
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
+              style={{ display: "inline-flex" }}
+            >
+              <Icon name="refresh" />
+            </motion.span>
           ) : (
-            <>
-              <Icon name="cpu" /> Connect
-            </>
+            <Icon name="cpu" />
           )}
-        </button>
+          {connecting ? " Connecting…" : " Connect"}
+        </motion.button>
       </div>
       {blocked && (
         <p className="agent-blocked-note">

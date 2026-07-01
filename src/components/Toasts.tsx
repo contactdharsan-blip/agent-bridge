@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "framer-motion";
 import { useToast, type ToastKind } from "../state/toast";
 import { Icon, type IconName } from "./Icon";
 
@@ -10,26 +11,32 @@ const ICON: Record<ToastKind, IconName> = {
 
 export function Toasts() {
   const { toasts, dismiss } = useToast();
-  if (toasts.length === 0) return null;
   return (
     <div className="toast-stack">
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          className={`toast toast-${t.kind}`}
-          role={t.kind === "error" ? "alert" : "status"}
-        >
-          <Icon name={ICON[t.kind]} />
-          <span className="toast-text">{t.text}</span>
-          <button
-            className="toast-close"
-            aria-label="dismiss"
-            onClick={() => dismiss(t.id)}
+      <AnimatePresence>
+        {toasts.map((t) => (
+          <motion.div
+            key={t.id}
+            layout
+            initial={{ opacity: 0, y: 20, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 40, transition: { duration: 0.15 } }}
+            transition={{ type: "spring", stiffness: 500, damping: 32 }}
+            className={`toast toast-${t.kind}`}
+            role={t.kind === "error" ? "alert" : "status"}
           >
-            <Icon name="x" />
-          </button>
-        </div>
-      ))}
+            <Icon name={ICON[t.kind]} />
+            <span className="toast-text">{t.text}</span>
+            <button
+              className="toast-close"
+              aria-label="dismiss"
+              onClick={() => dismiss(t.id)}
+            >
+              <Icon name="x" />
+            </button>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

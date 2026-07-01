@@ -1,3 +1,5 @@
+import * as Tooltip from "@radix-ui/react-tooltip";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { AccentSwitcher } from "./components/AccentSwitcher";
 import { AgentPicker } from "./components/AgentPicker";
@@ -132,6 +134,7 @@ export default function App() {
   }, [paletteOpen, stream]);
 
   return (
+    <MotionConfig reducedMotion="user">
     <>
     <div className="app app-bg">
       <header className="app-header">
@@ -139,14 +142,32 @@ export default function App() {
           <span className="app-mark" aria-hidden="true" />
           <h1>Agent Bridge</h1>
           <AccentSwitcher accent={accent} onChange={setAccent} />
-          <button
-            className="palette-trigger"
-            onClick={() => setPaletteOpen(true)}
-            title="Command palette"
-            aria-label="Open command palette"
-          >
-            <kbd className="kbd">⌘K</kbd>
-          </button>
+          <Tooltip.Provider delayDuration={400}>
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <button
+                  className="palette-trigger"
+                  onClick={() => setPaletteOpen(true)}
+                  aria-label="Open command palette"
+                >
+                  <kbd className="kbd">⌘K</kbd>
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content asChild side="bottom" sideOffset={6}>
+                  <motion.div
+                    className="tooltip-content"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.12 }}
+                  >
+                    Command palette
+                  </motion.div>
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          </Tooltip.Provider>
         </div>
         <AgentPicker
           agents={agents}
@@ -179,49 +200,62 @@ export default function App() {
       )}
 
       <main className="app-main">
-        {tab === "run" && (
-          <div className="panel">
-            {!onboardingDismissed && (
-              <OnboardingCard
-                agents={agents}
-                connected={connected}
-                hasProfile={hasProfile}
-                onGoConfig={() => setTab("config")}
-                onGoProfile={() => setTab("profile")}
-                onDismiss={() => setOnboardingDismissed(true)}
-              />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.16, ease: [0.4, 0, 0.2, 1] }}
+          >
+            {tab === "run" && (
+              <div className="panel">
+                <AnimatePresence>
+                  {!onboardingDismissed && (
+                    <OnboardingCard
+                      agents={agents}
+                      connected={connected}
+                      hasProfile={hasProfile}
+                      onGoConfig={() => setTab("config")}
+                      onGoProfile={() => setTab("profile")}
+                      onDismiss={() => setOnboardingDismissed(true)}
+                    />
+                  )}
+                </AnimatePresence>
+                <RunView stream={stream} />
+              </div>
             )}
-            <RunView stream={stream} />
-          </div>
-        )}
 
-        {tab === "config" && (
-          <div className="panel">
-            <ConfigPanel />
-          </div>
-        )}
+            {tab === "config" && (
+              <div className="panel">
+                <ConfigPanel />
+              </div>
+            )}
 
-        {tab === "handoff" && (
-          <div className="panel">
-            <HandoffPanel
-              stream={stream}
-              agents={agents}
-              cwd={cwd}
-              onSwitched={() => setTab("run")}
-              onGoRun={() => setTab("run")}
-            />
-          </div>
-        )}
+            {tab === "handoff" && (
+              <div className="panel">
+                <HandoffPanel
+                  stream={stream}
+                  agents={agents}
+                  cwd={cwd}
+                  onSwitched={() => setTab("run")}
+                  onGoRun={() => setTab("run")}
+                />
+              </div>
+            )}
 
-        {tab === "profile" && (
-          <div className="panel">
-            <ProfilePanel stream={stream} />
-          </div>
-        )}
+            {tab === "profile" && (
+              <div className="panel">
+                <ProfilePanel stream={stream} />
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </main>
     </div>
     <CommandPalette open={paletteOpen} commands={commands} onClose={() => setPaletteOpen(false)} />
     <Toasts />
     </>
+    </MotionConfig>
   );
 }

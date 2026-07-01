@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { checkDrift } from "../../engines";
 import type { DriftStatus, McpServer, Target } from "../../engineTypes";
@@ -134,23 +135,42 @@ export function DriftWrite({
         </button>
       </div>
 
-      {drift.phase === "done" && <DriftResult status={drift.status} />}
+      {drift.phase === "done" && (
+        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
+          <DriftResult status={drift.status} />
+        </motion.div>
+      )}
       {drift.phase === "error" && (
-        <div className="callout callout-error">
+        <motion.div
+          className="callout callout-error"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18 }}
+        >
           <Icon name="x" /> Drift check failed: {drift.message}
-        </div>
+        </motion.div>
       )}
       {applied === "copied" && (
-        <div className="callout callout-honesty">
+        <motion.div
+          className="callout callout-honesty"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18 }}
+        >
           <Icon name="check" /> Approved config copied — paste it into the target's native file, then
           re-check drift to confirm it's in sync.
-        </div>
+        </motion.div>
       )}
       {applied === "manual" && (
-        <div className="callout callout-warning">
+        <motion.div
+          className="callout callout-warning"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18 }}
+        >
           <Icon name="alert" /> Clipboard was blocked — select the previewed config above and copy it
           manually, then paste it into the target's native file and re-check drift.
-        </div>
+        </motion.div>
       )}
     </section>
   );

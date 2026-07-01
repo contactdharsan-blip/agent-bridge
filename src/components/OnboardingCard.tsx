@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import type { AgentInfo } from "../types";
 import { AuthBadge } from "./AuthBadge";
 import { Icon, type IconName } from "./Icon";
@@ -39,7 +40,13 @@ export function OnboardingCard({
   const anyConnected = agents.some((a) => a.authStatus === "connected");
 
   return (
-    <div className="glass-card onboarding">
+    <motion.div
+      className="glass-card onboarding"
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+    >
       <div className="onboarding-head">
         <h3 className="card-title">
           <Icon name="sparkles" /> Get set up
@@ -85,6 +92,6 @@ export function OnboardingCard({
           </button>
         </Step>
       </ol>
-    </div>
+    </motion.div>
   );
 }

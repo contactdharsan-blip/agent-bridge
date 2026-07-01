@@ -26,9 +26,11 @@ describe("App", () => {
     );
     expect(screen.getByText("Agent Bridge")).toBeTruthy();
     // Exact names — the onboarding card also has "Open Config"/"Open Profile".
-    expect(screen.getByRole("button", { name: "Run" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Config" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Handoff" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Profile" })).toBeTruthy();
+    // role="tab" (not "button") since the tab bar is a real Radix Tabs.Trigger now —
+    // proper APG tablist semantics, not a hand-rolled button group.
+    expect(screen.getByRole("tab", { name: "Run" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Config" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Handoff" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Profile" })).toBeTruthy();
   });
 });
