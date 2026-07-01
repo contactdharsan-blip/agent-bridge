@@ -1031,6 +1031,155 @@ body {
   height: 6rem;
 }
 
+/* ---- Handoff panel ---------------------------------------------------------- */
+.handoff-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .handoff-panel {
+    grid-template-columns: 1fr;
+  }
+}
+.handoff-editor-col,
+.handoff-diff-col {
+  min-width: 0;
+}
+
+.handoff-target-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.handoff-target-row .field-inline {
+  flex: 1;
+  min-width: 12rem;
+  margin-bottom: 0;
+}
+.handoff-target-row select,
+.handoff-target-row input {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  padding: 0.4rem 0.55rem;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.snap-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+}
+.snap-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+}
+.snap-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.snap-row input,
+.snap-row select {
+  flex: 1;
+  min-width: 0;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  font-size: 0.82rem;
+}
+.snap-row select {
+  flex: 0 0 auto;
+}
+
+.carry-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  position: sticky;
+  top: 0;
+}
+.carry-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.carry-col-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--color-divider);
+  margin-bottom: 0.4rem;
+}
+.carry-in {
+  color: #6ee7b7;
+}
+.carry-out {
+  color: #fca5a5;
+}
+.carry-col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.carry-col li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+.carry-detail {
+  color: var(--color-text-tertiary);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.74rem;
+}
+.carry-yes {
+  color: var(--color-text-secondary);
+}
+.carry-no {
+  color: var(--color-text-tertiary);
+  opacity: 0.75;
+}
+.carry-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.brief-preview {
+  max-height: 16rem;
+}
+.carry-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.83rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
 /* ---- Motion keyframes (always-on / ambient only, DESIGN §5.5) --------------- */
 @keyframes shimmer {
   from {

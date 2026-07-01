@@ -36,7 +36,7 @@ Tasks (each = typecheck + build green, then commit):
       (Run/Config/Handoff/Profile); 3-state auth badges (connected/needsLogin/error, icon+text);
       cancel in-flight turn; honest turn-end + distinct thought rendering; `useAgentStream` extensions
       (`cancel`, `promptCapture`). (UI-FR1–8, UI-FR27)
-- [ ] **UI-2 Config / Projection panel.** Canonical form editor → `preview_mcp` (tool-ceiling warning) +
+- [x] **UI-2 Config / Projection panel.** Canonical form editor → `preview_mcp` (tool-ceiling warning) +
       `preview_instructions` (equivalent-not-identical badge + fidelityNote) + `check_drift` (blocking review) +
       `audit_secret_bindings` (`${VAR}` + resolvability, never a literal). (UI-FR9–15)
 - [ ] **UI-3 Handoff panel.** Client-side `ContextSnapshot` assembly + blocking carry-diff +

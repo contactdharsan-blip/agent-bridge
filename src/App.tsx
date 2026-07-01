@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AgentPicker } from "./components/AgentPicker";
 import { ConfigPanel } from "./components/config/ConfigPanel";
+import { HandoffPanel } from "./components/handoff/HandoffPanel";
 import { PanelEmpty } from "./components/PanelEmpty";
 import { RunView } from "./components/RunView";
 import { TabBar, type TabDef } from "./components/TabBar";
@@ -86,10 +87,11 @@ export default function App() {
 
         {tab === "handoff" && (
           <div className="panel">
-            <PanelEmpty
-              icon="handoff"
-              title="Handoff Bridge"
-              hint="Carry-diff and reconstructed brief for switching agents mid-task — arriving next."
+            <HandoffPanel
+              stream={stream}
+              agents={agents}
+              cwd={cwd}
+              onSwitched={() => setTab("run")}
             />
           </div>
         )}

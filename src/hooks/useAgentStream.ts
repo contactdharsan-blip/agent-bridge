@@ -37,6 +37,9 @@ export interface AgentStream {
   promptCapture: (text: string) => Promise<string>;
   resolve: (decision: Decision) => Promise<void>;
   cancel: () => Promise<void>;
+  /** Spawn `targetAgent` and inject a handoff brief as its opening turn, framed as
+   * a reconstructed brief — never a resumed session (UI-FR18). */
+  switchWithBrief: (targetAgent: string, cwd: string, brief: string) => Promise<void>;
 }
 
 export function useAgentStream(): AgentStream {
@@ -185,6 +188,29 @@ export function useAgentStream(): AgentStream {
     setTurnActive(false);
   }, [session]);
 
+  const switchWithBrief = useCallback(
+    async (targetAgent: string, cwd: string, brief: string) => {
+      setError(null);
+      // Use the fresh session id directly — going through React state would race the
+      // send against the not-yet-committed session.
+      const sid = await ipc.startSession(targetAgent, cwd, onEvent);
+      setSession(sid);
+      setAgentId(targetAgent);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: newId(),
+          role: "system",
+          text: `Switched to ${targetAgent} — carrying a reconstructed brief, not a resumed session.`,
+        },
+        { id: newId(), role: "user", text: brief },
+      ]);
+      setTurnActive(true);
+      await ipc.sendPrompt(sid, brief);
+    },
+    [onEvent],
+  );
+
   return {
     session,
     agentId,
@@ -197,6 +223,7 @@ export function useAgentStream(): AgentStream {
     promptCapture,
     resolve,
     cancel,
+    switchWithBrief,
   };
 }
 
