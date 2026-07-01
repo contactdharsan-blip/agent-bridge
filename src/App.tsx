@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { AgentPicker } from "./components/AgentPicker";
+import { ConfigPanel } from "./components/config/ConfigPanel";
 import { PanelEmpty } from "./components/PanelEmpty";
 import { RunView } from "./components/RunView";
 import { TabBar, type TabDef } from "./components/TabBar";
 import { useAgentStream } from "./hooks/useAgentStream";
 import { listAgents } from "./ipc";
+import { CanonicalProvider } from "./state/canonical";
 import type { AgentInfo } from "./types";
 
 const TABS: TabDef[] = [
@@ -48,6 +50,7 @@ export default function App() {
   const connected = stream.session !== null;
 
   return (
+    <CanonicalProvider>
     <div className="app app-bg">
       <header className="app-header">
         <div className="app-title">
@@ -77,11 +80,7 @@ export default function App() {
 
         {tab === "config" && (
           <div className="panel">
-            <PanelEmpty
-              icon="config"
-              title="Config & Projection"
-              hint="Canonical editor with per-target preview, drift detection, and secret bindings — arriving next."
-            />
+            <ConfigPanel />
           </div>
         )}
 
@@ -106,5 +105,6 @@ export default function App() {
         )}
       </main>
     </div>
+    </CanonicalProvider>
   );
 }

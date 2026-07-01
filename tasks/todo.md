@@ -32,7 +32,7 @@ Operator decisions (2026-07-01):
   `--transition-spring`; reveals via CSS keyframes; `prefers-reduced-motion` gated; inline-SVG icons (no emoji).
 
 Tasks (each = typecheck + build green, then commit):
-- [ ] **UI-1 Foundation.** Dark liquid-glass tokens in App.css; inline-SVG `Icon` set; glass tab shell
+- [x] **UI-1 Foundation.** DONE @ `e6696d7`. Dark liquid-glass tokens in App.css; inline-SVG `Icon` set; glass tab shell
       (Run/Config/Handoff/Profile); 3-state auth badges (connected/needsLogin/error, icon+text);
       cancel in-flight turn; honest turn-end + distinct thought rendering; `useAgentStream` extensions
       (`cancel`, `promptCapture`). (UI-FR1–8, UI-FR27)
