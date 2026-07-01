@@ -30,6 +30,20 @@ export interface CanonicalStore {
 
 const Ctx = createContext<CanonicalStore | null>(null);
 
+/** Assemble the `Canonical` value the engine commands take (pure — unit-tested). */
+export function toCanonicalValue(
+  servers: McpServer[],
+  instructions: Instructions,
+  agentsMd: string,
+): Canonical {
+  return {
+    mcpServers: servers,
+    skills: [],
+    instructions: instructions.markdown ? instructions : undefined,
+    agentsMd: agentsMd || undefined,
+  };
+}
+
 /** A fresh stdio MCP server row (the common case; http servers are edited as
  * pasted URLs in a later iteration — the projectors already handle both). */
 function blankServer(): McpServer {
@@ -67,12 +81,7 @@ export function CanonicalProvider({ children }: { children: ReactNode }) {
       removeServer: (index) => setServers((prev) => prev.filter((_, i) => i !== index)),
       setInstructions: (markdown) => setInstr({ markdown }),
       setAgentsMd,
-      toCanonical: () => ({
-        mcpServers: servers,
-        skills: [],
-        instructions: instructions.markdown ? instructions : undefined,
-        agentsMd: agentsMd || undefined,
-      }),
+      toCanonical: () => toCanonicalValue(servers, instructions, agentsMd),
     }),
     [servers, instructions, agentsMd],
   );

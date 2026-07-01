@@ -4,14 +4,8 @@
 
 import { useCallback, useRef, useState } from "react";
 import * as ipc from "../ipc";
-import type {
-  AgentEvent,
-  ChatMessage,
-  Decision,
-  PendingEdit,
-  SessionId,
-  StopReason,
-} from "../types";
+import type { AgentEvent, ChatMessage, Decision, PendingEdit, SessionId } from "../types";
+import { appendToRole, stopNote } from "./streamReducers";
 
 let nextId = 1;
 const newId = () => nextId++;
@@ -67,8 +61,8 @@ export function useAgentStream(): AgentStream {
     if (!answer && !thought) return;
     setMessages((prev) => {
       let next = prev;
-      if (thought) next = appendToRole(next, thought, "thought");
-      if (answer) next = appendToRole(next, answer, "assistant");
+      if (thought) next = appendToRole(next, thought, "thought", newId);
+      if (answer) next = appendToRole(next, answer, "assistant", newId);
       return next;
     });
   }, []);
@@ -231,31 +225,4 @@ type SetMessages = React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 
 function pushSystem(setMessages: SetMessages, text: string) {
   setMessages((prev) => [...prev, { id: newId(), role: "system", text }]);
-}
-
-/** Append text to the open message of `role`, or start a new one if the last
- * message is a different role. Keeps interleaved thought/answer in own bubbles. */
-function appendToRole(
-  messages: ChatMessage[],
-  chunk: string,
-  role: ChatMessage["role"],
-): ChatMessage[] {
-  const last = messages[messages.length - 1];
-  if (last && last.role === role) {
-    const updated = { ...last, text: last.text + chunk };
-    return [...messages.slice(0, -1), updated];
-  }
-  return [...messages, { id: newId(), role, text: chunk }];
-}
-
-/** Honest turn-end: every stop reason other than a clean end is surfaced, never
- * silently swallowed (UI-NFR3, UI states matrix). */
-function stopNote(sr: StopReason): string | null {
-  if (sr === "endTurn") return null;
-  if (sr === "cancelled") return "Turn cancelled — output above may be incomplete.";
-  if (sr === "maxTokens") return "Turn ended: hit max tokens (response may be truncated).";
-  if (sr === "maxTurnRequests") return "Turn ended: hit the max tool-call rounds.";
-  if (sr === "refusal") return "Turn ended: the agent declined this request.";
-  if (typeof sr === "object" && "other" in sr) return `Turn ended: ${sr.other}.`;
-  return null;
 }

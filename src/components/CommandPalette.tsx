@@ -12,7 +12,7 @@ export interface Command {
 }
 
 /** Case-insensitive subsequence match, so "gcfg" finds "Go to Config". */
-function matches(label: string, query: string): boolean {
+export function matches(label: string, query: string): boolean {
   if (!query) return true;
   const l = label.toLowerCase();
   let i = 0;
