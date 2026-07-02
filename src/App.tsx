@@ -410,7 +410,10 @@ export default function App() {
                   stream={stream}
                   agents={agents}
                   cwd={cwd}
-                  onSwitched={() => setTab("run")}
+                  onSwitched={(newCwd) => {
+                    setCwd(newCwd);
+                    setTab("run");
+                  }}
                   onGoRun={() => setTab("run")}
                 />
               </div>

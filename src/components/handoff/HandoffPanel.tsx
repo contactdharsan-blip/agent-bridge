@@ -22,7 +22,7 @@ export function HandoffPanel({
   stream: AgentStream;
   agents: AgentInfo[];
   cwd: string;
-  onSwitched: () => void;
+  onSwitched: (cwd: string) => void;
   onGoRun: () => void;
 }) {
   const store = useCanonical();
@@ -99,9 +99,10 @@ export function HandoffPanel({
 
   const doSwitch = async (brief: string) => {
     try {
-      await stream.switchWithBrief(target, workingDirectory.trim(), brief);
+      const newCwd = workingDirectory.trim();
+      await stream.switchWithBrief(target, newCwd, brief);
       toast.push("success", `Switched to ${target} — brief sent`);
-      onSwitched();
+      onSwitched(newCwd);
     } catch (e) {
       toast.push("error", `Handoff failed: ${e}`);
     }
