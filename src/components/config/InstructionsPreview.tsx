@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { writeNativeFile } from "../../engines";
+import { readNativeFile, writeNativeFile } from "../../engines";
 import type { InstructionArtifact } from "../../engineTypes";
 import { useToast } from "../../state/toast";
 import { Icon } from "../Icon";
@@ -22,6 +22,13 @@ export function InstructionsPreview({
   const { data, loading, error } = state;
   const toast = useToast();
   const [writing, setWriting] = useState(false);
+  // Set when the on-disk file exists and DIFFERS from the projection — the write
+  // is BLOCKED behind an explicit overwrite confirmation so a hand-edited
+  // CLAUDE.md / AGENTS.md / .cursorrules is never silently clobbered (NFR2),
+  // matching the blocking review DriftWrite enforces for MCP config.
+  const [overwrite, setOverwrite] = useState<
+    null | { path: string; contents: string; onDisk: string }
+  >(null);
 
   const copy = async (contents: string, path: string) => {
     try {
@@ -32,21 +39,44 @@ export function InstructionsPreview({
     }
   };
 
+  const write = async (path: string, contents: string) => {
+    setWriting(true);
+    try {
+      await writeNativeFile(cwd, path, contents);
+      toast.push("success", `Wrote ${path}`);
+    } catch (e) {
+      toast.push("info", `Couldn't write ${path} directly (${String(e)}) — falling back to clipboard`);
+      await copy(contents, path);
+    } finally {
+      setWriting(false);
+      setOverwrite(null);
+    }
+  };
+
   const apply = async (artifact: InstructionArtifact) => {
     if (!cwd.trim()) {
       await copy(artifact.contents, artifact.path);
       return;
     }
+    // Compare against the on-disk file BEFORE writing — never overwrite unseen.
     setWriting(true);
+    let onDisk: string | null;
     try {
-      await writeNativeFile(cwd, artifact.path, artifact.contents);
-      toast.push("success", `Wrote ${artifact.path}`);
+      onDisk = await readNativeFile(cwd, artifact.path);
     } catch (e) {
-      toast.push("info", `Couldn't write ${artifact.path} directly (${String(e)}) — falling back to clipboard`);
-      await copy(artifact.contents, artifact.path);
-    } finally {
       setWriting(false);
+      toast.push("info", `Couldn't read ${artifact.path} to compare (${String(e)}) — copy it manually`);
+      await copy(artifact.contents, artifact.path);
+      return;
     }
+    setWriting(false);
+    // Absent or already identical → nothing is destroyed; write directly.
+    if (onDisk === null || onDisk.trim() === artifact.contents.trim()) {
+      await write(artifact.path, artifact.contents);
+      return;
+    }
+    // Exists and differs → BLOCK: require an explicit overwrite decision.
+    setOverwrite({ path: artifact.path, contents: artifact.contents, onDisk });
   };
 
   return (
@@ -70,7 +100,11 @@ export function InstructionsPreview({
                   <Icon name="info" /> equivalent, not identical
                 </span>
               )}
-              <button className="btn btn-sm" onClick={() => apply(data)} disabled={writing}>
+              <button
+                className="btn btn-sm"
+                onClick={() => apply(data)}
+                disabled={writing || overwrite !== null}
+              >
                 <Icon name="check" /> {writing ? "Writing…" : cwd.trim() ? "Write instructions" : "Copy instructions"}
               </button>
             </span>
@@ -82,6 +116,43 @@ export function InstructionsPreview({
           </div>
 
           <pre className="code-preview">{data.contents}</pre>
+
+          {overwrite && overwrite.path === data.path && (
+            <div className="drift-write">
+              <div className="callout callout-warning">
+                <Icon name="alert" />
+                <span>
+                  <strong>{overwrite.path}</strong> already exists on disk and differs — writing
+                  will overwrite your hand-edited file. Review its current contents below before
+                  overwriting.
+                </span>
+              </div>
+              <p className="typo-label">Current on-disk contents</p>
+              <pre className="code-preview">{overwrite.onDisk}</pre>
+              <div className="drift-actions">
+                <button className="btn btn-sm btn-ghost" onClick={() => setOverwrite(null)}>
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => {
+                    const o = overwrite;
+                    setOverwrite(null);
+                    void copy(o.contents, o.path);
+                  }}
+                >
+                  <Icon name="switch" /> Copy instead
+                </button>
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={() => void write(overwrite.path, overwrite.contents)}
+                  disabled={writing}
+                >
+                  <Icon name="check" /> {writing ? "Writing…" : `Overwrite ${overwrite.path}`}
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </section>

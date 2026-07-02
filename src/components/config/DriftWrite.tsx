@@ -124,6 +124,15 @@ export function DriftWrite({
     setApplied(null);
   }, [serversKey]);
 
+  // Changing the review BASIS (opening the manual paste, or editing its text)
+  // invalidates a prior review too — otherwise a user could review against one
+  // on-disk value, then edit the paste and write past the stale gate. Same class
+  // as the cwd/servers resets above; keeps the BLOCKING gate honest (NFR2).
+  useEffect(() => {
+    setDrift({ phase: "idle" });
+    setApplied(null);
+  }, [manualOpen, manualText]);
+
   const autoReadFailed = read.phase === "error";
   const usingManual = manualOpen || autoReadFailed;
   const onDiskValue: string | null = usingManual
