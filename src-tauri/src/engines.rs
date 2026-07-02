@@ -12,8 +12,8 @@ use profile::{
     GapFill, MergedProfile, Recommendation,
 };
 use projection::{
-    detect_mcp_drift, project_instructions, project_mcp, DriftStatus, InstructionArtifact,
-    McpProjection, Target,
+    detect_mcp_drift, parse_mcp, project_instructions, project_mcp, DriftStatus,
+    InstructionArtifact, McpProjection, Target,
 };
 use secrets::{audit_bindings, KeyringStore, SecretBinding};
 
@@ -35,6 +35,12 @@ pub fn check_drift(target: Target, on_disk: Option<String>, servers: Vec<McpServ
 #[tauri::command]
 pub fn preview_instructions(target: Target, instructions: Instructions) -> InstructionArtifact {
     project_instructions(target, &instructions)
+}
+
+/// Parse an existing native MCP config back into canonical servers (FR26 import wizard).
+#[tauri::command]
+pub fn parse_native_mcp(target: Target, contents: String) -> Result<Vec<McpServer>, String> {
+    parse_mcp(target, &contents).map_err(|e| e.to_string())
 }
 
 // ---- Handoff Bridge -------------------------------------------------------

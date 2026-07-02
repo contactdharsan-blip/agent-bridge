@@ -21,6 +21,9 @@ tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+[dev-dependencies]
+tempfile = "3"
+
 [lib]
 name = "agent_bridge_lib"
 crate-type = ["lib"]

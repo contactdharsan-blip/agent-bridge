@@ -15,6 +15,8 @@ import { TabBar, type TabDef } from "./components/TabBar";
 import { Toasts } from "./components/Toasts";
 import { useAgentStream } from "./hooks/useAgentStream";
 import { listAgents } from "./ipc";
+import { useCanonical } from "./state/canonical";
+import { runImportWizard } from "./state/importConfig";
 import { load, save } from "./state/persist";
 import { applyAccent, type AccentName } from "./state/theme";
 import { useToast } from "./state/toast";
@@ -40,6 +42,28 @@ export default function App() {
 
   const stream = useAgentStream();
   const toast = useToast();
+  const canonical = useCanonical();
+
+  // Import wizard (FR26): single-click ingest of whatever native MCP/instructions
+  // files already exist under `cwd` into the canonical store, so a user with an
+  // existing Claude/Codex/Cursor setup doesn't have to hand-type everything into
+  // the Config tab. Best-effort per file — reported via toast, never a modal.
+  const [importing, setImporting] = useState(false);
+  const importConfig = useCallback(async () => {
+    setImporting(true);
+    try {
+      await runImportWizard({
+        cwd: cwd.trim(),
+        servers: canonical.servers,
+        setServers: canonical.setServers,
+        setInstructions: canonical.setInstructions,
+        toast: toast.push,
+      });
+    } finally {
+      setImporting(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cwd, canonical.servers, canonical.setServers, canonical.setInstructions, toast]);
 
   // Re-pollable so the onboarding/tour instruction ("set the key or log in via
   // the CLI, then re-check") is actually completable — auth can change without
@@ -119,9 +143,16 @@ export default function App() {
     if (stream.turnActive) {
       cmds.push({ id: "cancel", label: "Cancel current turn", hint: "Esc", run: () => stream.cancel() });
     }
+    if (cwd.trim() && !importing) {
+      cmds.push({
+        id: "import-config",
+        label: "Import existing config",
+        run: () => void importConfig(),
+      });
+    }
     return cmds;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected, selected, cwd, stream.turnActive]);
+  }, [connected, selected, cwd, stream.turnActive, importing, importConfig]);
 
   // Global shortcuts (UI-FR32): ⌘/Ctrl-K toggles the palette; Esc closes it or
   // cancels an in-flight turn; number keys switch tabs when not typing in a field.
@@ -272,9 +303,12 @@ export default function App() {
                       agents={agents}
                       connected={connected}
                       hasProfile={hasProfile}
+                      canImport={cwd.trim().length > 0}
+                      importing={importing}
                       onGoConfig={() => setTab("config")}
                       onGoProfile={() => setTab("profile")}
                       onRecheck={refreshAgents}
+                      onImportConfig={importConfig}
                       onDismiss={() => setOnboardingDismissed(true)}
                     />
                   )}
@@ -285,7 +319,7 @@ export default function App() {
 
             {tab === "config" && (
               <div className="panel">
-                <ConfigPanel />
+                <ConfigPanel cwd={cwd} />
               </div>
             )}
 
