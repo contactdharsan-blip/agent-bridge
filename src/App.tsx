@@ -228,9 +228,11 @@ export default function App() {
           cwd={cwd}
           disabled={connected || connecting}
           connecting={connecting}
+          connected={connected}
           onSelect={setSelected}
           onCwdChange={setCwd}
           onConnect={connect}
+          onDisconnect={stream.disconnect}
           onRecheck={refreshAgents}
         />
         <TabBar tabs={TABS} active={tab} onChange={setTab} />

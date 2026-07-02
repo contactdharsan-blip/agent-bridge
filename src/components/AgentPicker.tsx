@@ -13,9 +13,11 @@ export function AgentPicker({
   cwd,
   disabled,
   connecting,
+  connected,
   onSelect,
   onCwdChange,
   onConnect,
+  onDisconnect,
   onRecheck,
 }: {
   agents: AgentInfo[];
@@ -23,9 +25,11 @@ export function AgentPicker({
   cwd: string;
   disabled: boolean;
   connecting: boolean;
+  connected: boolean;
   onSelect: (id: string) => void;
   onCwdChange: (cwd: string) => void;
   onConnect: () => void;
+  onDisconnect: () => void;
   onRecheck: () => Promise<void>;
 }) {
   const current = agents.find((a) => a.id === selected);
@@ -105,6 +109,15 @@ export function AgentPicker({
           )}
           {connecting ? " Connecting…" : " Connect"}
         </motion.button>
+        {connected && (
+          <button
+            className="btn btn-sm btn-disconnect"
+            onClick={onDisconnect}
+            title="End this session and start fresh"
+          >
+            <Icon name="x" /> Disconnect
+          </button>
+        )}
       </div>
       {blocked && (
         <p className="agent-blocked-note">

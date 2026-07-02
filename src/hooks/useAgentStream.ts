@@ -31,6 +31,9 @@ export interface AgentStream {
   promptCapture: (text: string) => Promise<string>;
   resolve: (decision: Decision) => Promise<void>;
   cancel: () => Promise<void>;
+  /** End the current session client-side so the picker re-enables and a fresh
+   * agent / session can be started (mirrors switchWithBrief's session swap). */
+  disconnect: () => void;
   /** Spawn `targetAgent` and inject a handoff brief as its opening turn, framed as
    * a reconstructed brief — never a resumed session (UI-FR18). */
   switchWithBrief: (targetAgent: string, cwd: string, brief: string) => Promise<void>;
@@ -182,6 +185,26 @@ export function useAgentStream(): AgentStream {
     setTurnActive(false);
   }, [session]);
 
+  const disconnect = useCallback(() => {
+    // Cancel any in-flight turn so the outgoing adapter isn't left running mid-turn,
+    // then reset all session-scoped state. Same session-swap shape as switchWithBrief.
+    if (session) void ipc.cancel(session).catch(() => {});
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    answerBuf.current = "";
+    thoughtBuf.current = "";
+    captureRef.current?.reject("Session ended");
+    captureRef.current = null;
+    setSession(null);
+    setAgentId(null);
+    setMessages([]);
+    setPendingEdit(null);
+    setTurnActive(false);
+    setError(null);
+  }, [session]);
+
   const switchWithBrief = useCallback(
     async (targetAgent: string, cwd: string, brief: string) => {
       setError(null);
@@ -220,6 +243,7 @@ export function useAgentStream(): AgentStream {
     promptCapture,
     resolve,
     cancel,
+    disconnect,
     switchWithBrief,
   };
 }
