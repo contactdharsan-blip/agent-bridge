@@ -114,6 +114,61 @@ visually verified (see lessons 2026-07-02).
 - [x] Tour browser-pass (**closes the UI-12 caveat**): headless Playwright confirmed the component highlight lands on the real element, no full-screen blur, the card docks off the highlighted column, and Enter advances across steps without dismissing.
 - [ ] VibeIndex card browser-pass (UI-13 caveat) — still open: the card renders only with a real merged profile (backend), not reachable in plain-browser dev; its logic is now NFR2-unit-tested, so layout stays operator-verifiable via `npm run tauri dev`.
 
+## v1.4 — business-analysis gap closure: fs I/O, import wizard, permission presets, doctor (2026-07-02)
+
+A business analysis of `agent-bridge-prd.md`/`agent-bridge-ui-prd.md` against the
+build found two P0 gaps blocking the PRD's own Activation metric (no native-file
+write *or* read path — `DriftWrite.tsx`'s `onDisk` was a manually-pasted
+textarea) and two v1-tagged FRs never built (FR31 permission presets, FR32
+doctor). Plan: `~/.claude/plans/lazy-coalescing-island.md`. Built as 3 parallel
+worktree-isolated tracks, merged sequentially with full-gate verification after
+each.
+
+- [x] **Track 1 (P0) — native config I/O + import wizard (FR24, FR26).** `ba4928c`
+      → merged `091fbd5`. `read_native_file`/`write_native_file` Tauri commands
+      + `parse_native_mcp` engine command; `DriftWrite.tsx`/`InstructionsPreview.tsx`
+      wired to real read/write with auto drift re-check, clipboard kept as
+      fallback; `src/state/importConfig.ts` single-click import into canonical.
+- [x] **Track 2 (P1) — permission presets, 2-tier (FR31).** `f07d2f0` → merged
+      `d6d734f`. Scope-corrected from the PRD's literal 3-tier ask to 2 real
+      presets (`default`/`acceptEdits`) — `AgentEvent` in `contract.rs` has only
+      one permission-shaped variant (`EditHunk`), so a "bypass" tier would imply
+      a distinction the frozen 🔴 contract doesn't have. Flagged a pre-existing,
+      out-of-scope gap: `HandoffPanel`'s local `workingDirectory` can drift from
+      `App.tsx`'s `cwd` after `switchWithBrief`, so the preset selector could show
+      the wrong project's preset post-handoff — not introduced here, not fixed here.
+- [x] **Track 3 (P1) — doctor diagnostics (FR32).** `4c78eff` → merged `b91ab5b`.
+      `src-tauri/src/doctor.rs`: Node/npx version (timeout-wrapped), per-agent
+      resolved command + auth status (reuses `registry::adapter_for`/
+      `known_agents`), real keychain sentinel probe (execution-verified against
+      the real macOS keychain during the build, then the throwaway test removed
+      before commit — see lessons 2026-07-02).
+- [x] **Integration.** 3 branches merged sequentially (Track 1 → 2 → 3) into
+      `agent-bridge-m3-m7`; `lib.rs` handler-list and `App.tsx` palette-array
+      conflicts resolved each time (both were simple "both sides appended a
+      distinct entry" merges). Full gate green after every merge.
+- [x] **Security fix mid-integration.** The commit-security-review hook flagged
+      `native_config.rs`'s path guard as HIGH (path traversal): it validated the
+      nearest-existing-ancestor but returned the raw joined path with any `..`
+      still embedded. Fixed with a lexical `reject_traversal` pre-check (ban
+      `ParentDir`/`RootDir`/`Prefix` components before touching the filesystem —
+      closes the TOCTOU gap the ancestor-walk alone left open), `b226ed0`. A
+      second pass (see lessons) closed a further dangling-symlink escape the
+      lexical guard didn't cover.
+- [x] **Track 4 — post-integration verification.** Rust: 46 workspace tests +
+      clippy clean. Frontend: `npm run typecheck && npm run build && npm test`
+      green (39 tests). DOM regression pass: `npm run dev` + headless Playwright
+      (reused the `~/.npm/_npx` cache from the earlier tour-verification session,
+      pointed at the cached `chromium-1208` browser directly since the npx
+      package's expected build number had drifted) confirmed no tour
+      `data-tour-step` target broke and the new Import button / permission
+      preset selector / doctor panel all render. **Not done:** a real
+      `npm run tauri dev` click-through — the browser-only harness has no real
+      Tauri IPC backend, so `list_agents`/`start_session` fail immediately
+      (expected, pre-existing behavior outside a real Tauri window) and anything
+      gated behind a live connection (thread, composer, handoff carry-diff)
+      couldn't be exercised this way. Operator-verifiable via `npm run tauri dev`.
+
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.
 - JSON Schema on every Profile Skill output — validate + reject at the boundary (M5b).

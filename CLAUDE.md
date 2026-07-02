@@ -49,8 +49,40 @@ The `acp-host` public API + its transport tests are **frozen** (plan §6b): chan
 ### Client surface (built — post-M7 UI milestone)
 The four-tab React UI that *consumes* the wired engine commands is implemented (`agent-bridge-ui-prd.md`, UI-FR1–26): the Run shell (tabs, auth badges, cancel, honest turn-end), the Config/Projection panel (canonical form editor → per-target preview + Cursor tool-ceiling + equivalent-not-identical instructions + **blocking** drift review + secret-binding manager), the Handoff panel (snapshot → blocking carry-diff → reconstructed brief → re-inject), and the Profile/Continuity dashboard (run-via-session → `validate_profile` → merge with per-agent confidence → recommendations + four-bucket continuity + equivalent/approximation gap-fills). Verify with `npm run typecheck && npm run build` (hermetic, disk-cheap — no Tauri build). The honesty affordances (NFR2) are hard UI requirements and are all sourced from real backend fields, never hard-coded copy — do not weaken them.
 
+### Native config I/O, import wizard, permission presets, doctor diagnostics (2026-07-02)
+Closed the gap the line above used to describe. `src-tauri/src/native_config.rs` adds
+`read_native_file`/`write_native_file` — real disk I/O outside the 15 pure-engine
+commands by design (the same fs-plugin-not-needed pattern: hand-written
+`#[tauri::command]`s already have native Rust file access, no Tauri fs plugin
+dependency required), guarded by a two-layer path-traversal check (lexical
+component rejection + ancestor canonicalization + non-dereferencing
+`symlink_metadata` rejection of any symlinked component, including a dangling
+final-component symlink). `DriftWrite.tsx`/`InstructionsPreview.tsx` now read the
+real on-disk file automatically (no more manual-paste `onDisk` textarea) and
+"Apply" actually writes + re-checks drift, with clipboard-copy kept as a fallback.
+FR26's import wizard (`src/state/importConfig.ts`) is a single-click "Import
+existing config" action (OnboardingCard + palette) that reads/parses whatever
+native MCP/instructions files already exist under `cwd` into the canonical store.
+FR31 permission presets (`src/state/permissionPresets.ts`) ship as **2 tiers only**
+(`default` / `acceptEdits`) — `crates/acp-host/src/contract.rs`'s `AgentEvent` has
+exactly one permission-shaped variant (`EditHunk`), so a third "bypass" tier would
+imply a distinction the frozen 🔴 contract doesn't have; adding a real bypass tier
+is a contract change, not an app-layer one. FR32 doctor diagnostics
+(`src-tauri/src/doctor.rs`, `DoctorPanel.tsx`) reports Node/npx version, resolved
+per-agent adapter command + auth status (reusing `registry::adapter_for`/
+`known_agents`, no duplication), and a real OS-keychain reachability probe against
+a dedicated `agent-bridge-doctor` sentinel. All four verified: `cargo test
+--workspace` + `cargo clippy --workspace --all-targets` + `npm run typecheck &&
+npm run build && npm test` green; DOM-level regression pass (Playwright against
+`npm run dev`) confirmed no tour `data-tour-step` targets broke. **Not yet done:**
+a real `npm run tauri dev` click-through (write a file, see it land on disk;
+connect a real agent and trigger an `acceptEdits` auto-apply) — the browser-only
+harness available this session has no real Tauri IPC backend, so anything gated
+behind an actual agent connection (thread, composer, handoff carry-diff) couldn't
+be exercised; the underlying logic is covered by 13 `native_config` + unit tests
+instead.
+
 ### What's left (not yet built)
-- **Actual native-config disk writes** — the Config panel reviews + copies the approved artifact; a real Tauri-fs write is outside the 15-command engine boundary by design (a fs-plugin follow-up, not a core change).
 - Operator/product items in `tasks/operator-todo.md` (signing, marketplace curation, pricing).
 
 ### Onboarding tour (UI-FR28, shipped)
