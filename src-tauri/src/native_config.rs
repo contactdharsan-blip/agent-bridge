@@ -55,6 +55,18 @@ fn nearest_existing_ancestor(path: &Path) -> PathBuf {
 /// existing ancestor, canonicalizes *that*, and confirms it is still inside
 /// the canonical `cwd`. This works whether or not the final file/parent dir
 /// exists yet, so it's safe to call before `create_dir_all` for a write.
+///
+/// Finally — and this is what makes it safe to `fs::read`/`fs::write` the
+/// returned (non-canonicalized) path — it rejects any *existing* component of
+/// the resolved path that is itself a symlink. The ancestor walk alone is not
+/// enough: a **dangling** symlink final component (e.g. a planted
+/// `cwd/.mcp.json -> ../../outside/file` whose target doesn't exist yet) reads
+/// as non-existent, so the walk skips past it to the parent dir — which
+/// canonicalizes cleanly inside `cwd` — and then `fs::write` follows the
+/// symlink and lands the write *outside* `cwd`. Because we never dereference a
+/// symlink here, the only legitimate on-disk shape is a real file/dir tree, so
+/// rejecting symlinked components closes that escape for both existing and
+/// dangling links without breaking any real caller.
 fn resolve_within(cwd: &str, rel_path: &str) -> Result<PathBuf, String> {
     reject_traversal(rel_path)?;
 
@@ -67,6 +79,28 @@ fn resolve_within(cwd: &str, rel_path: &str) -> Result<PathBuf, String> {
         .map_err(|e| format!("could not resolve path {rel_path:?}: {e}"))?;
     if !canonical_ancestor.starts_with(&canonical_cwd) {
         return Err(format!("path escapes working directory: {rel_path:?}"));
+    }
+
+    // Reject any component of the joined path (target or intermediate dir) that
+    // exists as a symlink. `symlink_metadata` does *not* follow the link, so a
+    // dangling final-component symlink — which `exists()`/`canonicalize()` treat
+    // as absent, letting it slip past the ancestor walk — is caught here before
+    // any `fs::read`/`fs::write` can follow it out of `cwd`.
+    let mut probe = joined.as_path();
+    loop {
+        if let Ok(meta) = fs::symlink_metadata(probe) {
+            if meta.file_type().is_symlink() {
+                return Err(format!("path escapes working directory (symlink): {rel_path:?}"));
+            }
+        }
+        match probe.parent() {
+            // Stop once we reach the trust boundary; `cwd` itself was already
+            // canonicalized (fully symlink-resolved) into `canonical_cwd`.
+            Some(parent) if parent.starts_with(&canonical_cwd) && parent != canonical_cwd => {
+                probe = parent
+            }
+            _ => break,
+        }
     }
 
     Ok(joined)
@@ -153,6 +187,74 @@ mod tests {
 
         let result = write_native_file(cwd, "sub/../../outside/evil.toml".into(), "x".into());
         assert!(result.is_err(), "any `..` component must be rejected regardless of what exists on disk");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dangling_symlink_final_component_write_is_rejected() {
+        // The escape the lexical + ancestor-walk guard alone missed: a planted
+        // symlink at a known TARGET_FILE name inside cwd, pointing at a
+        // *nonexistent* file outside cwd. The ancestor walk sees the dangling
+        // link as absent and canonicalizes the parent dir (inside cwd) cleanly;
+        // `fs::write` would then follow the link and land the write OUTSIDE cwd.
+        let base = tempfile::tempdir().unwrap();
+        let cwd = base.path().join("cwd");
+        let outside = base.path().join("outside");
+        fs::create_dir_all(&cwd).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+
+        let victim = outside.join("victim");
+        std::os::unix::fs::symlink(&victim, cwd.join(".mcp.json")).unwrap();
+
+        let result = write_native_file(
+            cwd.to_string_lossy().into(),
+            ".mcp.json".into(),
+            "ATTACKER_CONTENT".into(),
+        );
+        assert!(result.is_err(), "dangling-symlink final component must be rejected");
+        assert!(!victim.exists(), "nothing may be written outside cwd via the symlink");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_final_component_read_is_rejected() {
+        // Read side: an *existing* symlink final component pointing outside cwd
+        // would otherwise disclose the target's contents. Reject it, don't
+        // dereference it.
+        let base = tempfile::tempdir().unwrap();
+        let cwd = base.path().join("cwd");
+        let outside = base.path().join("outside");
+        fs::create_dir_all(&cwd).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+
+        let secret = outside.join("secret");
+        fs::write(&secret, "TOP_SECRET").unwrap();
+        std::os::unix::fs::symlink(&secret, cwd.join(".mcp.json")).unwrap();
+
+        let result = read_native_file(cwd.to_string_lossy().into(), ".mcp.json".into());
+        assert!(result.is_err(), "reading through an escaping symlink must be rejected");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_intermediate_dir_write_is_rejected() {
+        // A symlinked *directory* along the path (e.g. `.codex` -> outside) is
+        // just as much an escape as a symlinked final file.
+        let base = tempfile::tempdir().unwrap();
+        let cwd = base.path().join("cwd");
+        let outside = base.path().join("outside");
+        fs::create_dir_all(&cwd).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+
+        std::os::unix::fs::symlink(&outside, cwd.join(".codex")).unwrap();
+
+        let result = write_native_file(
+            cwd.to_string_lossy().into(),
+            ".codex/config.toml".into(),
+            "x".into(),
+        );
+        assert!(result.is_err(), "symlinked intermediate dir must be rejected");
+        assert!(!outside.join("config.toml").exists(), "nothing may be written through the symlinked dir");
     }
 
     #[test]
