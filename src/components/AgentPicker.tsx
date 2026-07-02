@@ -1,8 +1,10 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
+import type { PermissionPreset } from "../state/permissionPresets";
 import type { AgentInfo } from "../types";
 import { AuthBadge } from "./AuthBadge";
 import { Icon } from "./Icon";
+import { PermissionPresetSelector } from "./PermissionPresetSelector";
 
 // The agent surface: a live status strip for every registered agent (UI-FR27) plus
 // the connect control. It lists whatever the Rust registry reports and never
@@ -14,11 +16,13 @@ export function AgentPicker({
   disabled,
   connecting,
   connected,
+  preset,
   onSelect,
   onCwdChange,
   onConnect,
   onDisconnect,
   onRecheck,
+  onPresetChange,
 }: {
   agents: AgentInfo[];
   selected: string;
@@ -26,11 +30,13 @@ export function AgentPicker({
   disabled: boolean;
   connecting: boolean;
   connected: boolean;
+  preset: PermissionPreset;
   onSelect: (id: string) => void;
   onCwdChange: (cwd: string) => void;
   onConnect: () => void;
   onDisconnect: () => void;
   onRecheck: () => Promise<void>;
+  onPresetChange: (preset: PermissionPreset) => void;
 }) {
   const current = agents.find((a) => a.id === selected);
   // Never let a session start against an agent the core reports as errored (US-E1.4).
@@ -89,6 +95,7 @@ export function AgentPicker({
             onChange={(e) => onCwdChange(e.target.value)}
           />
         </label>
+        <PermissionPresetSelector preset={preset} onChange={onPresetChange} />
         <motion.button
           className="btn btn-primary btn-connect"
           disabled={disabled || blocked || !cwd.trim()}

@@ -17,6 +17,13 @@ import { useAgentStream } from "./hooks/useAgentStream";
 import { listAgents } from "./ipc";
 import { useCanonical } from "./state/canonical";
 import { runImportWizard } from "./state/importConfig";
+import {
+  getPreset,
+  loadPresets,
+  savePresets,
+  type PermissionPreset,
+  type PermissionPresetMap,
+} from "./state/permissionPresets";
 import { load, save } from "./state/persist";
 import { applyAccent, type AccentName } from "./state/theme";
 import { useToast } from "./state/toast";
@@ -39,6 +46,18 @@ export default function App() {
   useEffect(() => {
     save("settings.tab", tab);
   }, [tab]);
+
+  // Per-project permission preset (FR31) — a flat map keyed by cwd, matching how
+  // the rest of this app treats "project" (no general project-scoping concept yet).
+  const [presets, setPresets] = useState<PermissionPresetMap>(() => loadPresets());
+  useEffect(() => {
+    savePresets(presets);
+  }, [presets]);
+  const projectKey = cwd.trim();
+  const preset = getPreset(presets, projectKey);
+  const setPreset = (p: PermissionPreset) => {
+    setPresets((prev) => ({ ...prev, [projectKey]: p }));
+  };
 
   const stream = useAgentStream();
   const toast = useToast();
@@ -163,9 +182,19 @@ export default function App() {
         run: () => void importConfig(),
       });
     }
+    cmds.push({
+      id: "preset-default",
+      label: "Set permission preset: Ask every time",
+      run: () => setPresets((prev) => ({ ...prev, [cwd.trim()]: "default" })),
+    });
+    cmds.push({
+      id: "preset-accept-edits",
+      label: "Set permission preset: Auto-accept edits",
+      run: () => setPresets((prev) => ({ ...prev, [cwd.trim()]: "acceptEdits" })),
+    });
     return cmds;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected, selected, cwd, stream.turnActive, importing, importConfig]);
+  }, [connected, selected, cwd, stream.turnActive, importing, importConfig, setPresets]);
 
   // Global shortcuts (UI-FR32): ⌘/Ctrl-K toggles the palette; Esc closes it or
   // cancels an in-flight turn; number keys switch tabs when not typing in a field.
@@ -273,11 +302,13 @@ export default function App() {
           disabled={connected || connecting}
           connecting={connecting}
           connected={connected}
+          preset={preset}
           onSelect={setSelected}
           onCwdChange={setCwd}
           onConnect={connect}
           onDisconnect={stream.disconnect}
           onRecheck={refreshAgents}
+          onPresetChange={setPreset}
         />
         <TabBar tabs={TABS} active={tab} onChange={setTab} />
       </header>

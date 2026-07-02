@@ -11,7 +11,25 @@
 //! supplied path should never be trusted implicitly).
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+
+/// Reject anything but a plain relative path (`Normal`/`CurDir` components
+/// only) *before* touching the filesystem at all. There is no legitimate
+/// caller that needs `..`, an absolute path, or a Windows prefix — every real
+/// caller passes a known-safe constant (`TARGET_FILE`/`INSTRUCTIONS_FILE`).
+/// This is the primary guard: it can't be defeated by a symlink race between
+/// check and use, because it never depends on what's actually on disk.
+fn reject_traversal(rel_path: &str) -> Result<(), String> {
+    for component in Path::new(rel_path).components() {
+        match component {
+            Component::Normal(_) | Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(format!("path must be a plain relative path: {rel_path:?}"));
+            }
+        }
+    }
+    Ok(())
+}
 
 /// Walk up from `path` to the nearest ancestor that actually exists on disk.
 /// `path` itself need not exist (the common case for a write before the file
@@ -31,13 +49,15 @@ fn nearest_existing_ancestor(path: &Path) -> PathBuf {
 
 /// Resolve `rel_path` under `cwd` and confirm the result cannot escape `cwd`.
 ///
-/// Canonicalizes `cwd` (the trust boundary), then walks up from the joined
-/// target to the nearest existing ancestor and canonicalizes *that* — which
-/// resolves any `..` components (via the OS, during the `exists()` probes)
-/// and any symlink indirection — and confirms it is still inside the
-/// canonical `cwd`. This works whether or not the final file/parent dir
+/// First rejects any `..`/absolute component lexically (see
+/// `reject_traversal`), then — as a second, symlink-aware layer — canonicalizes
+/// `cwd` (the trust boundary), walks up from the joined target to the nearest
+/// existing ancestor, canonicalizes *that*, and confirms it is still inside
+/// the canonical `cwd`. This works whether or not the final file/parent dir
 /// exists yet, so it's safe to call before `create_dir_all` for a write.
 fn resolve_within(cwd: &str, rel_path: &str) -> Result<PathBuf, String> {
+    reject_traversal(rel_path)?;
+
     let canonical_cwd = fs::canonicalize(cwd)
         .map_err(|e| format!("could not resolve working directory {cwd:?}: {e}"))?;
     let joined = canonical_cwd.join(rel_path);
@@ -118,5 +138,29 @@ mod tests {
 
         let result = read_native_file(cwd, "../../etc/passwd".into());
         assert!(result.is_err(), "traversal read must be rejected");
+    }
+
+    #[test]
+    fn traversal_is_rejected_lexically_even_for_a_nonexistent_target() {
+        // Regression test for the case the ancestor-walk alone could miss:
+        // a `..` path whose nearest existing ancestor still happens to sit
+        // inside `cwd` (e.g. `sub/../../outside`, where `sub` exists but the
+        // walk's early parents do too) must still be rejected up front by
+        // `reject_traversal`, before any filesystem probing happens.
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().to_string_lossy().to_string();
+        fs::create_dir_all(dir.path().join("sub")).unwrap();
+
+        let result = write_native_file(cwd, "sub/../../outside/evil.toml".into(), "x".into());
+        assert!(result.is_err(), "any `..` component must be rejected regardless of what exists on disk");
+    }
+
+    #[test]
+    fn absolute_path_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().to_string_lossy().to_string();
+
+        let result = write_native_file(cwd, "/etc/passwd".into(), "pwned".into());
+        assert!(result.is_err(), "absolute path must be rejected");
     }
 }

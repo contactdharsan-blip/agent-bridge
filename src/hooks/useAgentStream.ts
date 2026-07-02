@@ -4,6 +4,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import * as ipc from "../ipc";
+import { getPreset, loadPresets, resolvePresetDecision } from "../state/permissionPresets";
 import type { AgentEvent, ChatMessage, Decision, PendingEdit, SessionId } from "../types";
 import { appendToRole, stopNote } from "./streamReducers";
 
@@ -54,6 +55,10 @@ export function useAgentStream(): AgentStream {
   const thoughtBuf = useRef("");
   const rafRef = useRef<number | null>(null);
   const captureRef = useRef<Capture | null>(null);
+  // The active session's project dir, so the streaming event handler (below) can
+  // look up its permission preset (FR31) without needing cwd threaded through
+  // React state — onEvent is only rebuilt on [schedule, flush], not on cwd.
+  const cwdRef = useRef<string>("");
 
   const flush = useCallback(() => {
     rafRef.current = null;
@@ -86,14 +91,29 @@ export function useAgentStream(): AgentStream {
           thoughtBuf.current += event.text;
           schedule();
           break;
-        case "editHunk":
-          setPendingEdit({
-            requestId: event.requestId,
-            path: event.path,
-            oldText: event.oldText,
-            newText: event.newText,
-          });
+        case "editHunk": {
+          // Per-project preset (FR31): "acceptEdits" auto-resolves instead of
+          // surfacing the diff, but this is never silent — a system message
+          // always records what happened, same as every other honesty
+          // affordance in this app. Only ever auto-resolves EditHunk (a
+          // reviewable file-content diff) — the frozen AgentEvent contract has
+          // no other permission-shaped variant to accidentally auto-approve.
+          const preset = getPreset(loadPresets(), cwdRef.current);
+          if (resolvePresetDecision(preset, "editHunk") === "accept") {
+            ipc.resolvePermission(event.requestId, "accept").catch((e) => {
+              pushSystem(setMessages, `Failed to auto-apply edit to ${event.path}: ${String(e)}`);
+            });
+            pushSystem(setMessages, `Auto-applied edit to ${event.path} (acceptEdits preset)`);
+          } else {
+            setPendingEdit({
+              requestId: event.requestId,
+              path: event.path,
+              oldText: event.oldText,
+              newText: event.newText,
+            });
+          }
           break;
+        }
         case "turnEnded": {
           flush();
           setTurnActive(false);
@@ -125,6 +145,7 @@ export function useAgentStream(): AgentStream {
   const connect = useCallback(
     async (id: string, cwd: string) => {
       setError(null);
+      cwdRef.current = cwd;
       const sid = await ipc.startSession(id, cwd, onEvent);
       setSession(sid);
       setAgentId(id);
@@ -197,6 +218,7 @@ export function useAgentStream(): AgentStream {
     thoughtBuf.current = "";
     captureRef.current?.reject("Session ended");
     captureRef.current = null;
+    cwdRef.current = "";
     setSession(null);
     setAgentId(null);
     setMessages([]);
@@ -211,6 +233,7 @@ export function useAgentStream(): AgentStream {
       // Drop any unresolved edit from the outgoing agent — its requestId belongs to
       // the abandoned session, so it must not stay actionable against the new one.
       setPendingEdit(null);
+      cwdRef.current = cwd;
       // Use the fresh session id directly — going through React state would race the
       // send against the not-yet-committed session.
       const sid = await ipc.startSession(targetAgent, cwd, onEvent);
