@@ -122,14 +122,43 @@ pub fn read_native_file(cwd: String, path: String) -> Result<Option<String>, Str
 
 /// Write `contents` to a native file under `cwd`, creating any missing parent
 /// directories first (needed for e.g. `.codex/config.toml`'s `.codex/` dir).
+///
+/// The write is **atomic**: contents go to a sibling temp file in the same
+/// directory (fsync'd), which is then `rename`d over the target. A crash or
+/// interrupted write therefore leaves the existing hand-edited native config
+/// intact — it is never truncated or half-written. `resolve_within` already
+/// confined `resolved` (and thus its symlink-free `parent`) to `cwd`.
 #[tauri::command]
 pub fn write_native_file(cwd: String, path: String, contents: String) -> Result<(), String> {
+    use std::io::Write;
+
     let resolved = resolve_within(&cwd, &path)?;
-    if let Some(parent) = resolved.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("could not create directory for {path}: {e}"))?;
-    }
-    fs::write(&resolved, contents).map_err(|e| format!("could not write {path}: {e}"))
+    let parent = resolved
+        .parent()
+        .ok_or_else(|| format!("{path} has no parent directory"))?;
+    fs::create_dir_all(parent)
+        .map_err(|e| format!("could not create directory for {path}: {e}"))?;
+
+    let file_name = resolved
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "config".to_string());
+    let tmp = parent.join(format!(".{file_name}.agentbridge.tmp"));
+
+    let write_tmp = || -> std::io::Result<()> {
+        let mut f = fs::File::create(&tmp)?;
+        f.write_all(contents.as_bytes())?;
+        f.sync_all()?;
+        Ok(())
+    };
+    write_tmp().map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        format!("could not write {path}: {e}")
+    })?;
+    fs::rename(&tmp, &resolved).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        format!("could not finalize write of {path}: {e}")
+    })
 }
 
 #[cfg(test)]
