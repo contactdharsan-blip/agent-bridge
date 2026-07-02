@@ -89,3 +89,25 @@ export function gapFillsFor(target: Agent, profile: MergedProfile): Promise<GapF
 export function auditSecretBindings(servers: McpServer[]): Promise<SecretBinding[]> {
   return invoke("audit_secret_bindings", { servers });
 }
+
+// ---- Native config file I/O ------------------------------------------------
+// Real fs reads/writes for the native config/instructions files the projection
+// commands above only ever preview (FR24: the Config panel's "apply" actually
+// writing to disk; FR26: the import wizard reading an existing user's native
+// files back into the canonical store). `cwd` + a relative `path` are resolved
+// and guarded against path traversal on the Rust side.
+
+/** Read a native file under `cwd`. `null` if it doesn't exist yet (not an error). */
+export function readNativeFile(cwd: string, path: string): Promise<string | null> {
+  return invoke("read_native_file", { cwd, path });
+}
+
+/** Write `contents` to a native file under `cwd`, creating parent dirs as needed. */
+export function writeNativeFile(cwd: string, path: string, contents: string): Promise<void> {
+  return invoke("write_native_file", { cwd, path, contents });
+}
+
+/** Parse an existing native MCP config back into canonical servers (FR26 import). */
+export function parseNativeMcp(target: Target, contents: string): Promise<McpServer[]> {
+  return invoke("parse_native_mcp", { target, contents });
+}

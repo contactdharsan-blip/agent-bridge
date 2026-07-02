@@ -1,16 +1,27 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { checkDrift } from "../../engines";
+import { checkDrift, readNativeFile, writeNativeFile } from "../../engines";
 import type { DriftStatus, McpServer, Target } from "../../engineTypes";
 import { useToast } from "../../state/toast";
 import { Icon } from "../Icon";
 import { TARGET_FILE } from "./targets";
 
-// Drift detection + the reviewed write (UI-FR13/14). The honesty gate is BLOCKING:
-// the projected config can't be applied until the on-disk file has been compared,
-// so a hand-edited native file is never silently clobbered. There is no fs-write
-// among the 15 commands, so "apply" copies the reviewed artifact for placement at
-// the shown path (the write itself is outside the engine boundary, by design).
+// Drift detection + the reviewed write (UI-FR13/14, FR24). The honesty gate is
+// BLOCKING: the projected config can't be applied until the on-disk file has
+// been compared, so a hand-edited native file is never silently clobbered.
+// The on-disk comparison is read automatically from `cwd`/`TARGET_FILE[target]`
+// (a real fs read — no more manually pasting the current file); a collapsed
+// manual-paste fallback stays available for when `cwd` is empty or the auto
+// read fails, so nothing regresses for a user without a working directory set.
+// "Apply" writes the approved config straight to disk when `cwd` is set,
+// falling back to the clipboard-copy flow only if that write fails (or there's
+// no `cwd` to write into).
+
+type ReadState =
+  | { phase: "idle" }
+  | { phase: "reading" }
+  | { phase: "ok"; contents: string | null }
+  | { phase: "error"; message: string };
 
 type DriftState =
   | { phase: "idle" }
@@ -65,39 +76,104 @@ export function DriftWrite({
   target,
   servers,
   contents,
+  cwd,
 }: {
   target: Target;
   servers: McpServer[];
   contents: string | null;
+  cwd: string;
 }) {
-  const [onDisk, setOnDisk] = useState("");
+  const path = TARGET_FILE[target];
+  const [read, setRead] = useState<ReadState>({ phase: "idle" });
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualText, setManualText] = useState("");
   const [drift, setDrift] = useState<DriftState>({ phase: "idle" });
-  const [applied, setApplied] = useState<null | "copied" | "manual">(null);
+  const [applied, setApplied] = useState<null | "written" | "copied" | "manual">(null);
   const toast = useToast();
+
+  // Auto-read the on-disk file whenever the target or working directory
+  // changes, and reset the review gate — a new file (or a new projection
+  // below) must be re-reviewed before it can be applied.
+  useEffect(() => {
+    setDrift({ phase: "idle" });
+    setApplied(null);
+    setManualOpen(false);
+    setManualText("");
+    if (!cwd.trim()) {
+      setRead({ phase: "error", message: "No working directory set" });
+      return;
+    }
+    let cancelled = false;
+    setRead({ phase: "reading" });
+    readNativeFile(cwd, path)
+      .then((c) => {
+        if (!cancelled) setRead({ phase: "ok", contents: c });
+      })
+      .catch((e) => {
+        if (!cancelled) setRead({ phase: "error", message: String(e) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cwd, path]);
 
   // A new projection must be re-reviewed before it can be written.
   const serversKey = JSON.stringify(servers);
   useEffect(() => {
     setDrift({ phase: "idle" });
     setApplied(null);
-  }, [target, serversKey]);
+  }, [serversKey]);
 
-  // Only a completed, READABLE comparison unlocks the write gate. A failed check
-  // (rejected promise → phase "error") OR an unreadable on-disk paste — which
+  const autoReadFailed = read.phase === "error";
+  const usingManual = manualOpen || autoReadFailed;
+  const onDiskValue: string | null = usingManual
+    ? manualText.trim()
+      ? manualText
+      : null
+    : read.phase === "ok"
+      ? read.contents
+      : null;
+
+  // Only a completed, READABLE comparison unlocks the write gate. A failed
+  // check (rejected promise → phase "error") OR an unreadable file — which
   // resolves as phase "done" with status "unreadable", i.e. no comparison
-  // actually happened — must not count as reviewed, or a hand-edited native file
-  // could be clobbered unseen.
-  const reviewed = drift.phase === "done" && drift.status.status !== "unreadable";
+  // actually happened — must not count as reviewed, or a hand-edited native
+  // file could be clobbered unseen. Still reading from disk also blocks it.
+  const reviewed =
+    drift.phase === "done" && drift.status.status !== "unreadable" && read.phase !== "reading";
 
   const runCheck = () => {
     setDrift({ phase: "checking" });
-    checkDrift(target, onDisk.trim() ? onDisk : null, servers)
+    checkDrift(target, onDiskValue, servers)
       .then((status) => setDrift({ phase: "done", status }))
       .catch((e) => setDrift({ phase: "error", message: String(e) }));
   };
 
   const apply = async () => {
     if (!contents) return;
+
+    if (cwd.trim()) {
+      try {
+        await writeNativeFile(cwd, path, contents);
+        setApplied("written");
+        toast.push("success", `Wrote ${path}`);
+        // Confirm the write actually landed in sync — re-read + re-check.
+        setDrift({ phase: "checking" });
+        try {
+          const fresh = await readNativeFile(cwd, path);
+          setRead({ phase: "ok", contents: fresh });
+          const status = await checkDrift(target, fresh, servers);
+          setDrift({ phase: "done", status });
+        } catch (e) {
+          setDrift({ phase: "error", message: String(e) });
+        }
+        return;
+      } catch (e) {
+        toast.push("info", `Couldn't write ${path} directly (${String(e)}) — falling back to clipboard`);
+        // fall through to the clipboard fallback below
+      }
+    }
+
     try {
       await navigator.clipboard.writeText(contents);
       setApplied("copied");
@@ -114,21 +190,57 @@ export function DriftWrite({
         <Icon name="shield" /> Drift review &amp; write
       </h4>
       <p className="card-sub">
-        Paste the current on-disk file to compare, or leave empty if it doesn't exist yet. The write
-        is gated behind this review — nothing is clobbered silently.
+        {cwd.trim()
+          ? `The current contents of ${path} are read automatically for comparison. Review is required before the approved config can be written.`
+          : `Set a working directory above to read ${path} automatically, or paste its current contents below.`}
       </p>
 
-      <textarea
-        className="ondisk-input"
-        rows={4}
-        aria-label={`Current on-disk contents of ${target}'s native file`}
-        placeholder={`current contents of ${target}'s native file (optional)`}
-        value={onDisk}
-        onChange={(e) => setOnDisk(e.target.value)}
-      />
+      {!usingManual && read.phase === "reading" && (
+        <div className="skeleton skeleton-block" aria-label={`reading ${path}`} />
+      )}
+      {!usingManual && read.phase === "ok" && (
+        <div className="callout">
+          <Icon name="info" />
+          {read.contents === null
+            ? `${path} doesn't exist on disk yet.`
+            : `Read the current contents of ${path} from disk.`}
+        </div>
+      )}
+
+      {usingManual && (
+        <>
+          {autoReadFailed && !manualOpen && (
+            <p className="callout callout-warning">
+              <Icon name="alert" /> Couldn't read {path} automatically ({read.phase === "error" ? read.message : ""}) — paste its current contents below, or leave empty if it doesn't exist yet.
+            </p>
+          )}
+          <textarea
+            className="ondisk-input"
+            rows={4}
+            aria-label={`Current on-disk contents of ${target}'s native file`}
+            placeholder={`current contents of ${target}'s native file (optional)`}
+            value={manualText}
+            onChange={(e) => setManualText(e.target.value)}
+          />
+        </>
+      )}
+
+      {!autoReadFailed && cwd.trim() && (
+        <button
+          type="button"
+          className="btn btn-sm btn-ghost"
+          onClick={() => setManualOpen((o) => !o)}
+        >
+          <Icon name="config" /> {manualOpen ? "Use the auto-read file instead" : "Paste manually instead"}
+        </button>
+      )}
 
       <div className="drift-actions">
-        <button className="btn btn-sm" onClick={runCheck} disabled={drift.phase === "checking"}>
+        <button
+          className="btn btn-sm"
+          onClick={runCheck}
+          disabled={drift.phase === "checking" || read.phase === "reading"}
+        >
           <Icon name="refresh" /> {drift.phase === "checking" ? "Checking…" : "Check drift"}
         </button>
         <button
@@ -137,12 +249,12 @@ export function DriftWrite({
           disabled={!reviewed || !contents}
           aria-describedby={!reviewed ? "drift-blocked" : undefined}
         >
-          <Icon name="check" /> Copy approved config
+          <Icon name="check" /> {cwd.trim() ? "Write approved config" : "Copy approved config"}
         </button>
       </div>
       {!reviewed && (
         <p className="callout callout-warning" id="drift-blocked">
-          <Icon name="alert" /> Check drift above before copying the config out.
+          <Icon name="alert" /> Check drift above before applying the config.
         </p>
       )}
 
@@ -161,6 +273,16 @@ export function DriftWrite({
           <Icon name="x" /> Drift check failed: {drift.message}
         </motion.div>
       )}
+      {applied === "written" && (
+        <motion.div
+          className="callout callout-honesty"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          <Icon name="check" /> Wrote <code>{path}</code> — drift was re-checked above to confirm it's in sync.
+        </motion.div>
+      )}
       {applied === "copied" && (
         <motion.div
           className="callout callout-honesty"
@@ -169,7 +291,7 @@ export function DriftWrite({
           transition={{ duration: 0.18 }}
         >
           <Icon name="check" /> Approved {target} config copied — paste it into{" "}
-          <code>{TARGET_FILE[target]}</code>, then re-check drift to confirm it's in sync.
+          <code>{path}</code>, then re-check drift to confirm it's in sync.
         </motion.div>
       )}
       {applied === "manual" && (
@@ -180,7 +302,7 @@ export function DriftWrite({
           transition={{ duration: 0.18 }}
         >
           <Icon name="alert" /> Clipboard was blocked — select the previewed config above and copy it
-          manually, then paste it into <code>{TARGET_FILE[target]}</code> and re-check drift.
+          manually, then paste it into <code>{path}</code> and re-check drift.
         </motion.div>
       )}
     </section>

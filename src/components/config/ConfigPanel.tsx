@@ -18,7 +18,7 @@ const TARGETS: { id: Target; label: string }[] = [
   { id: "cursor", label: "Cursor JSON" },
 ];
 
-export function ConfigPanel() {
+export function ConfigPanel({ cwd }: { cwd: string }) {
   const store = useCanonical();
   const [target, setTarget] = useState<Target>("claude");
 
@@ -55,10 +55,10 @@ export function ConfigPanel() {
             anything touches disk.
           </p>
           <McpPreview target={target} state={mcp} />
-          <InstructionsPreview state={instructions} />
+          <InstructionsPreview state={instructions} cwd={cwd} />
         </div>
 
-        <DriftWrite target={target} servers={store.servers} contents={mcp.data?.contents ?? null} />
+        <DriftWrite target={target} servers={store.servers} contents={mcp.data?.contents ?? null} cwd={cwd} />
       </div>
     </div>
   );

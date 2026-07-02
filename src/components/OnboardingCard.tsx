@@ -28,17 +28,23 @@ export function OnboardingCard({
   agents,
   connected,
   hasProfile,
+  canImport,
+  importing,
   onGoConfig,
   onGoProfile,
   onRecheck,
+  onImportConfig,
   onDismiss,
 }: {
   agents: AgentInfo[];
   connected: boolean;
   hasProfile: boolean;
+  canImport: boolean;
+  importing: boolean;
   onGoConfig: () => void;
   onGoProfile: () => void;
   onRecheck: () => Promise<void>;
+  onImportConfig: () => Promise<void>;
   onDismiss: () => void;
 }) {
   const anyConnected = agents.some((a) => a.authStatus === "connected");
@@ -108,9 +114,19 @@ export function OnboardingCard({
         </Step>
 
         <Step done={hasConfig} label="Set up your config">
-          <button className="btn btn-primary btn-sm" onClick={onGoConfig}>
-            <Icon name="arrowRight" /> Open Config
-          </button>
+          <div className="onboard-actions">
+            <button className="btn btn-primary btn-sm" onClick={onGoConfig}>
+              <Icon name="arrowRight" /> Open Config
+            </button>
+            <button
+              className="btn btn-sm"
+              onClick={() => void onImportConfig()}
+              disabled={!canImport || importing}
+              title={canImport ? undefined : "Set a working directory above first"}
+            >
+              <Icon name="switch" /> {importing ? "Importing…" : "Import existing config"}
+            </button>
+          </div>
         </Step>
 
         <Step done={hasProfile} label="Run your first profile">

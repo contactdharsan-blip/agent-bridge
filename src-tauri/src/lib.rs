@@ -2,6 +2,7 @@
 
 mod commands;
 mod engines;
+mod native_config;
 
 use commands::AppState;
 
@@ -27,6 +28,10 @@ pub fn run() {
             engines::workflow_continuity,
             engines::gap_fills_for,
             engines::audit_secret_bindings,
+            engines::parse_native_mcp,
+            // Native config file I/O (FR24 disk writes, FR26 import wizard).
+            native_config::read_native_file,
+            native_config::write_native_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Agent Bridge");
