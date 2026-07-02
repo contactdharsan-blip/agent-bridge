@@ -57,4 +57,30 @@ describe("computeVibeIndex", () => {
     )!;
     expect(idx.traits).toEqual(["a", "b", "c"]);
   });
+
+  it("does not claim a majority when the top category is only a plurality (NFR2)", () => {
+    const idx = computeVibeIndex(
+      merged({
+        taskMix: [
+          { category: "refactor", fraction: 0.3 },
+          { category: "debug", fraction: 0.28 },
+          { category: "tests", fraction: 0.22 },
+          { category: "docs", fraction: 0.2 },
+        ],
+      }),
+    )!;
+    // The archetype label still reflects the leading category...
+    expect(idx.archetype).toBe("The Refactorer");
+    // ...but a 30% plurality must not read as "spends most sessions".
+    expect(idx.blurb).not.toMatch(/most sessions/i);
+    expect(idx.blurb).toContain("no single task category dominates");
+  });
+
+  it("does not fabricate a cross-agent lean from a single-agent profile (NFR2)", () => {
+    // With one agent, weight is 1.0 by construction — a "lean" would be invented.
+    const idx = computeVibeIndex(
+      merged({ agents: [{ agent: "claude", weight: 1, confidence: 0.5 }] }),
+    )!;
+    expect(idx.leadAgent).toBeNull();
+  });
 });

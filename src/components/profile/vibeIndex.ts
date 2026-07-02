@@ -42,19 +42,33 @@ export function computeVibeIndex(merged: MergedProfile | null): VibeIndex | null
     null,
   );
   const archetype = ARCHETYPES[topCategory?.category ?? "other"] ?? ARCHETYPES.other;
+  // "Spends most sessions …" is only honest when the top category is an actual
+  // majority. A mere plurality (e.g. 30% leading) must not read as "most" —
+  // that would contradict the fraction shown right beneath it (NFR2).
+  const isMajority = (topCategory?.fraction ?? 0) >= 0.5;
+  const blurb =
+    topCategory && !isMajority
+      ? `Leans toward ${topCategory.category}, but no single task category dominates.`
+      : archetype.blurb;
 
   const confidence = Math.round(
     merged.agents.reduce((sum, a) => sum + a.weight * a.confidence, 0) * 100,
   );
 
-  const leadAgent = merged.agents.reduce<{ agent: string; weight: number } | null>(
-    (best, a) => (!best || a.weight > best.weight ? { agent: a.agent, weight: a.weight } : best),
-    null,
-  );
+  // Only meaningful across more than one agent — with a single collected profile
+  // each weight is 1.0 by construction, so a "lean" would be a fabricated
+  // cross-agent finding (NFR2). The card already gates the badge on non-null.
+  const leadAgent =
+    merged.agents.length > 1
+      ? merged.agents.reduce<{ agent: string; weight: number } | null>(
+          (best, a) => (!best || a.weight > best.weight ? { agent: a.agent, weight: a.weight } : best),
+          null,
+        )
+      : null;
 
   return {
     archetype: archetype.name,
-    blurb: archetype.blurb,
+    blurb,
     confidence,
     topCategory,
     leadAgent,

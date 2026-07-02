@@ -15,6 +15,10 @@ function confidenceLabel(c: number): { text: string; cls: string } {
 // personality, and NFR2 forbids blending confidence into a single smooth "score."
 export function VibeIndexCard({ index }: { index: VibeIndex }) {
   const conf = confidenceLabel(index.confidence);
+  // A "thin" profile must not read as a settled verdict — down-weight the
+  // headline to a leaning and mark the blurb an early read (NFR2). Derived
+  // entirely from the banded confidence, never hardcoded.
+  const provisional = conf.text === "thin";
   return (
     <div className="glass-card vibe-index-card">
       <h3 className="card-title">
@@ -23,14 +27,17 @@ export function VibeIndexCard({ index }: { index: VibeIndex }) {
 
       <div className="vibe-head">
         <div className="vibe-archetype">
-          <span className="vibe-archetype-name">{index.archetype}</span>
-          <p className="card-sub">{index.blurb}</p>
+          <span className="vibe-archetype-name">
+            {provisional ? `Leaning toward ${index.archetype}` : index.archetype}
+          </span>
+          <p className="card-sub">{provisional ? `Early read: ${index.blurb}` : index.blurb}</p>
         </div>
-        <span
-          className={`badge ${conf.cls} vibe-confidence-badge`}
-          title="How much collected data backs this profile — not a personality score."
-        >
+        <span className={`badge ${conf.cls} vibe-confidence-badge`}>
           profile confidence: {conf.text} ({index.confidence})
+          <span className="sr-only">
+            {" "}
+            — how much collected data backs this profile, not a personality score
+          </span>
         </span>
       </div>
 
