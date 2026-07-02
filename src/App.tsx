@@ -5,6 +5,7 @@ import { AccentSwitcher } from "./components/AccentSwitcher";
 import { AgentPicker } from "./components/AgentPicker";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { ConfigPanel } from "./components/config/ConfigPanel";
+import { DoctorPanel } from "./components/DoctorPanel";
 import { HandoffPanel } from "./components/handoff/HandoffPanel";
 import { Icon } from "./components/Icon";
 import { OnboardingCard } from "./components/OnboardingCard";
@@ -160,6 +161,7 @@ export default function App() {
   }, [accent]);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [doctorOpen, setDoctorOpen] = useState(false);
 
   const commands = useMemo<Command[]>(() => {
     const cmds: Command[] = [
@@ -168,6 +170,7 @@ export default function App() {
       { id: "tab-handoff", label: "Go to Handoff", hint: "3", run: () => setTab("handoff") },
       { id: "tab-profile", label: "Go to Profile", hint: "4", run: () => setTab("profile") },
       { id: "replay-tour", label: "Replay walkthrough", run: () => setTourOpen(true) },
+      { id: "run-doctor", label: "Run doctor diagnostics", run: () => setDoctorOpen(true) },
     ];
     if (!connected && selected && cwd.trim()) {
       cmds.push({ id: "connect", label: `Connect to ${selected}`, run: connect });
@@ -294,6 +297,32 @@ export default function App() {
               </Tooltip.Portal>
             </Tooltip.Root>
           </Tooltip.Provider>
+          <Tooltip.Provider delayDuration={400}>
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <button
+                  className="palette-trigger"
+                  onClick={() => setDoctorOpen(true)}
+                  aria-label="Run doctor diagnostics"
+                >
+                  <Icon name="activity" />
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content asChild side="bottom" sideOffset={6}>
+                  <motion.div
+                    className="tooltip-content"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.12 }}
+                  >
+                    Doctor diagnostics
+                  </motion.div>
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          </Tooltip.Provider>
         </div>
         <AgentPicker
           agents={agents}
@@ -398,6 +427,7 @@ export default function App() {
     </div>
     <CommandPalette open={paletteOpen} commands={commands} onClose={() => setPaletteOpen(false)} />
     <OnboardingTour open={tourOpen} onClose={closeTour} tab={tab} onTabChange={setTab} />
+    <DoctorPanel open={doctorOpen} onClose={() => setDoctorOpen(false)} />
     <Toasts />
     </>
     </MotionConfig>

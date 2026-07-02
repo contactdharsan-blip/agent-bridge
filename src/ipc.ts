@@ -3,7 +3,7 @@
 // trivially testable, and the agent identity entirely Rust-side.
 
 import { invoke, Channel } from "@tauri-apps/api/core";
-import type { AgentEvent, AgentInfo, Decision, SessionId } from "./types";
+import type { AgentEvent, AgentInfo, Decision, DoctorReport, SessionId } from "./types";
 
 /** The agents the Rust core knows how to launch (with live auth-presence hints). */
 export function listAgents(): Promise<AgentInfo[]> {
@@ -40,4 +40,13 @@ export function resolvePermission(
 /** Cancel the in-flight turn for a session. */
 export function cancel(session: SessionId): Promise<void> {
   return invoke("cancel", { session });
+}
+
+/**
+ * Run the local, never-uploaded health check (FR32): Node/npx presence +
+ * version, bundled-adapter resolution health, and OS-keychain reachability —
+ * so a user (or the solo builder) can quickly see why something isn't working.
+ */
+export function runDoctor(): Promise<DoctorReport> {
+  return invoke<DoctorReport>("run_doctor");
 }

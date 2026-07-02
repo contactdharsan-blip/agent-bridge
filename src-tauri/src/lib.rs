@@ -1,6 +1,7 @@
 //! Agent Bridge Tauri application entry point.
 
 mod commands;
+mod doctor;
 mod engines;
 mod native_config;
 
@@ -32,6 +33,8 @@ pub fn run() {
             // Native config file I/O (FR24 disk writes, FR26 import wizard).
             native_config::read_native_file,
             native_config::write_native_file,
+            // Local diagnostics (FR32).
+            doctor::run_doctor,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Agent Bridge");
