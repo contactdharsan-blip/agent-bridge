@@ -1,6 +1,7 @@
 //! Agent Bridge Tauri application entry point.
 
 mod commands;
+mod doctor;
 mod engines;
 
 use commands::AppState;
@@ -27,6 +28,8 @@ pub fn run() {
             engines::workflow_continuity,
             engines::gap_fills_for,
             engines::audit_secret_bindings,
+            // Local diagnostics (FR32).
+            doctor::run_doctor,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Agent Bridge");

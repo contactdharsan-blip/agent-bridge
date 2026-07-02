@@ -26,7 +26,8 @@ export type IconName =
   | "trash"
   | "chevronRight"
   | "handoff"
-  | "info";
+  | "info"
+  | "activity";
 
 // Each entry is the inner geometry of a 24×24 stroke icon (except `dot`, a fill).
 const PATHS: Record<IconName, ReactNode> = {
@@ -107,6 +108,8 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M12 16v-4M12 8h.01" />
     </>
   ),
+  // A heartbeat/pulse trace — the doctor diagnostics affordance (FR32).
+  activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
 };
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {
