@@ -5,8 +5,10 @@
 export type SessionId = string;
 export type Decision = "accept" | "reject";
 
-/** First-class auth state for the per-agent status panel. */
-export type AuthStatus = "connected" | "needsLogin" | "error";
+/** First-class auth state for the per-agent status panel. `byoLogin` = no API
+ * key set, but the agent's own native login (subscription/OAuth) is used — not
+ * an error. `needsLogin`/`error` are runtime states set after a connect attempt. */
+export type AuthStatus = "connected" | "byoLogin" | "needsLogin" | "error";
 
 export interface AgentInfo {
   id: string;

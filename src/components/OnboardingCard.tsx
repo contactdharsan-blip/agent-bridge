@@ -90,8 +90,9 @@ export function OnboardingCard({
           {!anyConnected && (
             <>
               <p className="onboard-hint">
-                For a <em>needs-login</em> agent, set its key env var or log in via its own CLI, then
-                re-check — the status flips without relaunching.
+                No API key needed — if you're signed into an agent (Claude Pro/Max, ChatGPT,
+                Cursor), just pick it and Connect; Agent Bridge uses your existing login. Only set a
+                key if you prefer the bring-your-own-key path.
               </p>
               <button className="btn btn-sm" onClick={recheck} disabled={rechecking}>
                 <Icon name="refresh" /> {rechecking ? "Re-checking…" : "Re-check"}

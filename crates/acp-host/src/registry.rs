@@ -15,14 +15,20 @@ pub const CODEX: &str = "codex";
 pub const CURSOR: &str = "cursor";
 
 /// First-class auth state for the per-agent status panel (PRD FR23/FR47).
-/// `Error` requires a live probe, so it is set by the runtime, not derivable
-/// from env presence alone; the registry reports `Connected` / `NeedsLogin`.
+/// The registry reports `Connected` / `ByoLogin` from env presence alone;
+/// `NeedsLogin` and `Error` require a live probe, so they are set by the
+/// runtime after a connect attempt, never derived from env presence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AuthStatus {
-    /// A credential is present (BYO key in env / keychain).
+    /// An API key is present in env/keychain (the BYO-key path).
     Connected,
-    /// No credential found — the agent needs its native login.
+    /// No API key set — not an error: Agent Bridge uses whatever the user is
+    /// already signed into in this agent (subscription / OAuth). The connect
+    /// attempt is the real auth verdict, not env presence.
+    ByoLogin,
+    /// The agent reported it needs its native login — a runtime state set after
+    /// a failed handshake, never emitted from env presence alone.
     NeedsLogin,
     /// A live check failed (set by the runtime after a failed handshake).
     Error,
@@ -44,12 +50,14 @@ pub struct AgentInfo {
     pub auth_status: AuthStatus,
 }
 
-/// Map credential presence to a (non-error) auth status.
+/// Map API-key presence to a pre-connect auth status. Absence is NOT "needs
+/// login" — the adapter falls back to the agent's own native login, so an
+/// unset key just means the BYO-login path; the connect attempt decides.
 fn status_for(present: bool) -> AuthStatus {
     if present {
         AuthStatus::Connected
     } else {
-        AuthStatus::NeedsLogin
+        AuthStatus::ByoLogin
     }
 }
 
@@ -82,7 +90,8 @@ fn npx(package: &str) -> (String, Vec<String>) {
 ///
 /// API keys present in the environment are forwarded to the adapter; the
 /// subprocess also inherits the parent environment, so an unset key here simply
-/// means we add nothing extra (the adapter then reports needing login).
+/// means we add nothing extra — the adapter then uses the agent's own native
+/// login (subscription / OAuth) if the user is signed in.
 pub fn adapter_for(agent_id: &str) -> Option<AdapterSpec> {
     match agent_id {
         CLAUDE => {
@@ -178,10 +187,22 @@ mod tests {
     }
 
     #[test]
-    fn auth_status_is_consistent_with_presence() {
+    fn auth_status_reflects_key_presence_honestly() {
         for a in known_agents() {
-            let expected = if a.auth_present { AuthStatus::Connected } else { AuthStatus::NeedsLogin };
+            let expected = if a.auth_present {
+                AuthStatus::Connected
+            } else {
+                AuthStatus::ByoLogin
+            };
             assert_eq!(a.auth_status, expected, "{} status must track its key presence", a.id);
+            // Pre-connect we never assert "needs login": an unset key means the
+            // agent's own login is used, and only a live connect can prove otherwise.
+            assert_ne!(
+                a.auth_status,
+                AuthStatus::NeedsLogin,
+                "{} must not be NeedsLogin pre-connect (env-only detection)",
+                a.id
+            );
         }
     }
 }

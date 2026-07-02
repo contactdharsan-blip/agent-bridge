@@ -23,7 +23,7 @@ export const TOUR_STEPS: TourStep[] = [
     tab: "run",
     selector: "agent-picker",
     title: "Connect an agent",
-    body: "Pick an agent and a working directory, then hit Connect. If an agent needs login, its badge tells you exactly what to do — set its key env var or log in via that agent's own CLI, then re-check.",
+    body: "Pick an agent and a working directory, then hit Connect. No Agent Bridge API key needed — if you're already signed into that agent (subscription or key), it just works. Its badge shows whether a key or your own agent login is in use.",
   },
   {
     id: "thread",

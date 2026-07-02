@@ -35,7 +35,9 @@ export function AgentPicker({
   const current = agents.find((a) => a.id === selected);
   // Never let a session start against an agent the core reports as errored (US-E1.4).
   const blocked = current?.authStatus === "error";
-  const needsLogin = current?.authStatus === "needsLogin";
+  // No API key set — not a blocker: the agent's own login (subscription/OAuth)
+  // is used. Connect stays enabled; a failed connect is the real verdict.
+  const byoLogin = current?.authStatus === "byoLogin";
   const [rechecking, setRechecking] = useState(false);
   const recheck = async () => {
     setRechecking(true);
@@ -125,11 +127,11 @@ export function AgentPicker({
           until it clears.
         </p>
       )}
-      {!blocked && needsLogin && (
-        <p className="callout callout-warning">
-          <Icon name="info" /> {current?.displayName} needs login — set{" "}
-          {current?.authEnv ?? "its key env var"} or log in via its own CLI, then Re-check. You can
-          still connect once it's set.
+      {!blocked && byoLogin && (
+        <p className="callout">
+          <Icon name="info" /> {current?.displayName} has no API key set — Agent Bridge will use
+          your existing {current?.displayName} login (subscription or OAuth). No key needed; just
+          Connect.
         </p>
       )}
     </div>

@@ -74,6 +74,19 @@ export default function App() {
   const connected = stream.session !== null;
   const hasProfile = load<unknown[]>("profiles", []).length > 0;
 
+  // A connect failure the core classified as auth-related (`AUTH_REQUIRED:<agent>:<detail>`
+  // from commands.rs) — reframe it as an actionable "sign in to your agent" notice
+  // rather than a generic runtime error, without inventing detail.
+  const authInfo = (() => {
+    if (!connectError?.startsWith("AUTH_REQUIRED:")) return null;
+    const rest = connectError.slice("AUTH_REQUIRED:".length);
+    const i = rest.indexOf(":");
+    return { agent: i >= 0 ? rest.slice(0, i) : rest, detail: i >= 0 ? rest.slice(i + 1) : "" };
+  })();
+  const authAgentName = authInfo
+    ? (agents.find((a) => a.id === authInfo.agent)?.displayName ?? authInfo.agent)
+    : "";
+
   const [onboardingDismissed, setOnboardingDismissed] = useState(() =>
     load<boolean>("settings.onboardingDismissed", false),
   );
@@ -242,8 +255,16 @@ export default function App() {
         <div className="banner banner-error" role="alert">
           <Icon name="alert" />
           <div className="banner-body">
-            <strong>Couldn't reach the agent runtime.</strong>
-            <code className="banner-detail">{connectError}</code>
+            <strong>
+              {authInfo ? `Sign in to ${authAgentName} to connect` : "Couldn't reach the agent runtime."}
+            </strong>
+            {authInfo && (
+              <span>
+                No Agent Bridge key needed — sign in to {authAgentName} via its own subscription or
+                CLI login, then reconnect.
+              </span>
+            )}
+            <code className="banner-detail">{authInfo ? authInfo.detail : connectError}</code>
           </div>
           <button
             className="banner-close"
