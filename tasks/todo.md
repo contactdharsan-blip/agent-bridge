@@ -98,6 +98,22 @@ Operator decision: superseded the zero-dep design-system rule (`framer-motion` +
 - [ ] Grant Automation permission for Finder to the local host app (System Settings → Privacy &
       Security → Automation) if a properly-styled local `.dmg` is wanted instead of the CI one.
 
+## v1.3 — comprehensive UX audit + adversarial self-review (2026-07-02)
+
+Standing goal: "audit and implement changes repeatedly on walkthrough, features,
+UI/UX flows to make design better." Five multi-agent rounds (find → adversarial
+verify), 15 commits (`f36e683`…`ca121bb`), each `npm run typecheck && npm run
+build && npm test` green (27 tests). Headless Playwright now available → tour
+visually verified (see lessons 2026-07-02).
+
+- [x] Round 1 — visual/a11y/token/interaction/responsive (35 raw → 34 confirmed): `--text-*`/`--space-*` scales, `:focus-visible` rings on every control, 24px targets, status `-rgb`/`-fg` tokens, overflow/truncation guards, honest error banner (icon + headline + dismiss).
+- [x] Round 2 — walkthrough + UX flows (23 confirmed): tour rebuilt **component-based** (transparent overlay, `.tour-highlight` on the real target — supersedes the measured getBoundingClientRect box), keyboard nav (Enter-advance), missing-target centering, card-overlap dodge; drift-gate `error` bypass (HIGH), double-onboarding, instructions Copy, checklist→4/4, carry-diff markers, named target files, auth re-check, merge-error honesty (HIGH), needs-login pre-flight, disconnect path, visible blocked-reasons. (`f36e683`…`5e7d3b7`)
+- [x] Round 3 — leaf components (12 confirmed): ServerEditor delete-corrupts-survivor-args (HIGH), roving-tabindex accent radio, ARIA disclosure/status skeletons, AuthBadge "credentials found", ProfileCollector honest error cause + pluralization, PromptInput placeholder. (`697a7c7`)
+- [x] Round 4 — adversarial self-review of the loop's own 15 commits (4 confirmed, all self-introduced): drift-gate `unreadable` bypass (HIGH — a commit message wrongly claimed it fixed this), tour focus race vs AnimatePresence `mode="wait"`, needs-login red→amber. (`be254e2`)
+- [x] Round 5 — Vibecoder Index NFR2 (4 confirmed): single-agent fabricated "lean", plurality-as-majority blurb, thin-profile authority, tooltip-only confidence framing; +2 regression tests (27 total). (`ca121bb`)
+- [x] Tour browser-pass (**closes the UI-12 caveat**): headless Playwright confirmed the component highlight lands on the real element, no full-screen blur, the card docks off the highlighted column, and Enter advances across steps without dismissing.
+- [ ] VibeIndex card browser-pass (UI-13 caveat) — still open: the card renders only with a real merged profile (backend), not reachable in plain-browser dev; its logic is now NFR2-unit-tested, so layout stays operator-verifiable via `npm run tauri dev`.
+
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.
 - JSON Schema on every Profile Skill output — validate + reject at the boundary (M5b).
