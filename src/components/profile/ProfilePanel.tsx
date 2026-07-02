@@ -25,6 +25,8 @@ import { ContinuityView } from "./ContinuityView";
 import { MergedView } from "./MergedView";
 import { ProfileCollector } from "./ProfileCollector";
 import { dominantProfile, PROFILE_SKILL_REPO_URL } from "./profileRun";
+import { computeVibeIndex } from "./vibeIndex";
+import { VibeIndexCard } from "./VibeIndexCard";
 
 const EMPTY: AsyncState<never> = { data: null, loading: false, error: null };
 
@@ -127,6 +129,9 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileKey]);
 
+  // Pure reduction of `merged` — no fetch, no effect needed.
+  const vibeIndex = computeVibeIndex(merged);
+
   // Continuity + gap-fills recompute when the merge, target, or canonical store change.
   const canonical = store.toCanonical();
   const canonicalKey = JSON.stringify(canonical);
@@ -197,6 +202,7 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
       <div className="profile-result-col">
         {merged ? (
           <>
+            {vibeIndex && <VibeIndexCard index={vibeIndex} />}
             <MergedView merged={merged} recommendations={recs} />
             <ContinuityView
               target={target}

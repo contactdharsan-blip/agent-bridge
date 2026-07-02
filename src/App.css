@@ -1721,10 +1721,36 @@ body {
 }
 
 .merged-view,
-.continuity-view {
+.continuity-view,
+.vibe-index-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.vibe-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.vibe-archetype {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.vibe-archetype-name {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+.vibe-confidence-badge {
+  flex-shrink: 0;
+  font-family: "JetBrains Mono", monospace;
+}
+.vibe-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .agent-weights {
