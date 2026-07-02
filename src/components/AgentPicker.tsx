@@ -126,7 +126,7 @@ export function AgentPicker({
         </p>
       )}
       {!blocked && needsLogin && (
-        <p className="agent-blocked-note">
+        <p className="callout callout-warning">
           <Icon name="info" /> {current?.displayName} needs login — set{" "}
           {current?.authEnv ?? "its key env var"} or log in via its own CLI, then Re-check. You can
           still connect once it's set.

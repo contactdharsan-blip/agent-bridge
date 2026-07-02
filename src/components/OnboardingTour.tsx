@@ -91,14 +91,6 @@ export function OnboardingTour({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, stepIndex]);
 
-  // Focus the primary action each step so Enter advances the tour (Radix would
-  // otherwise land focus on Skip, making Enter dismiss the whole walkthrough).
-  useEffect(() => {
-    if (!open) return;
-    const t = window.setTimeout(() => primaryRef.current?.focus(), 0);
-    return () => window.clearTimeout(t);
-  }, [open, stepIndex]);
-
   const finish = () => {
     onClose();
   };
@@ -150,6 +142,11 @@ export function OnboardingTour({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.98 }}
                   transition={{ duration: 0.32, ease: [0.34, 1.56, 0.64, 1] }}
+                  // Focus the primary action once the entering step has actually
+                  // mounted (under mode="wait" the new button doesn't exist until
+                  // the old step's exit finishes) so Enter advances the tour
+                  // instead of landing on Skip and dismissing it.
+                  onAnimationComplete={() => primaryRef.current?.focus()}
                 >
                   <Dialog.Title className="card-title">
                     <Icon name="sparkles" /> {step.title}
