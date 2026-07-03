@@ -168,6 +168,22 @@ each.
       (expected, pre-existing behavior outside a real Tauri window) and anything
       gated behind a live connection (thread, composer, handoff carry-diff)
       couldn't be exercised this way. Operator-verifiable via `npm run tauri dev`.
+- [x] **Track 5 — post-v1.4 security/honesty follow-ups (2026-07-02).** 4 fixes
+      from the native-fs security audit, landed after the v1.4 docs commit:
+      `b226ed0` closed a dangling-symlink escape in `native_config`'s path guard
+      (+3 tests); `e6316b8` made `write_native_file` atomic (temp file + fsync +
+      rename, same directory, so a crash never half-writes a hand-edited native
+      file); `479fcf4` closed a HIGH honesty-gate hole where
+      `InstructionsPreview`'s "Write instructions" could silently clobber a
+      hand-edited CLAUDE.md/AGENTS.md/.cursorrules with no read/compare/confirm
+      (same class DriftWrite already blocked for MCP config — the audit found
+      the sibling site never got the pattern) + fixed `DriftWrite`'s own gate not
+      resetting when the manual-paste text changed after a review; `00a3246`
+      fixed `HandoffPanel`'s local `workingDirectory` drifting from `App.tsx`'s
+      `cwd` post-switch (flagged during Track 2, fixed as a follow-up). Full gate
+      re-verified 2026-07-03: `cargo test --workspace` (Rust, all green) +
+      `cargo clippy --workspace --all-targets` (clean) + `npm run typecheck &&
+      npm run build && npm test` (39/39) all green.
 
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.
