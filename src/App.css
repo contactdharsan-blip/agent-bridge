@@ -1547,6 +1547,14 @@ body {
   font-size: var(--text-sm);
   color: var(--color-text-tertiary);
 }
+/* A blocking-flavored variant of .onboard-hint (FR48: missing Node, unresolved
+ * secrets) — distinct color so it reads as "needs attention", not routine copy. */
+.onboard-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-warning-fg);
+}
 .onboard-actions {
   display: flex;
   flex-wrap: wrap;

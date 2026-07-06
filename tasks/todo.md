@@ -524,9 +524,23 @@ worst-first.
       (84/84) all green; macOS path confirmed for real (Terminal.app process
       observed launching), Windows/Linux paths are best-effort/unverified in
       this sandbox.
-- [ ] **FR48 onboarding wizard** — doesn't itself detect installed agents (that
-      check lives only in the separate, unlinked Doctor panel); no dedicated
-      secret-binding step.
+- [x] **FR48 onboarding wizard** — FIXED (2026-07-06). Gap 1 (installed-agent
+      detection): `OnboardingCard.tsx` now calls `run_doctor` itself on mount
+      (no detection logic re-derived — reuses the exact same IPC command
+      `DoctorPanel` does) and surfaces the one signal that actually blocks
+      Step 1 — no Node.js means neither npx-based agent (Claude/Codex) can
+      spawn — inline, with an "Open Doctor" button for the full report rather
+      than duplicating it. Gap 2 (secret-binding step): new Step "Bind any
+      secrets your config needs", reusing `audit_secret_bindings` directly
+      (same call `SecretBindings.tsx` makes) — done when there's nothing to
+      bind OR every `${VAR}` reference resolves; names which env vars are
+      still unresolved otherwise, never a literal value. Both checks fail
+      gracefully (stay hidden/pending, never show a false claim) when there's
+      no real Tauri backend to answer them — confirmed via a real headless-
+      Chromium render pass against `npm run dev` (all 5 steps present, zero
+      page errors, Doctor warning correctly absent rather than falsely firing
+      when the IPC call itself fails). Verified: `npm run typecheck && npm
+      run build && npm test` (92/92) green.
 
 ### Stub wearing a real UI
 - [ ] **Gap-filling "marketplace" index is 2 hardcoded entries**

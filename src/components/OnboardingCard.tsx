@@ -1,7 +1,9 @@
-import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { auditSecretBindings } from "../engines";
+import type { SecretBinding } from "../engineTypes";
+import { runDoctor } from "../ipc";
 import { useCanonical } from "../state/canonical";
-import type { AgentInfo } from "../types";
+import type { AgentInfo, DoctorReport } from "../types";
 import { AuthBadge } from "./AuthBadge";
 import { Icon, type IconName } from "./Icon";
 
@@ -34,6 +36,7 @@ export function OnboardingCard({
   onGoProfile,
   onRecheck,
   onImportConfig,
+  onOpenDoctor,
   onDismiss,
 }: {
   agents: AgentInfo[];
@@ -45,6 +48,10 @@ export function OnboardingCard({
   onGoProfile: () => void;
   onRecheck: () => Promise<void>;
   onImportConfig: () => Promise<void>;
+  /** Opens the Doctor panel (FR48) — the onboarding step below surfaces just
+   * the one blocking signal (no Node = no npx-based agent can spawn) inline;
+   * the full report is one click away, not duplicated here. */
+  onOpenDoctor: () => void;
   onDismiss: () => void;
 }) {
   const anyConnected = agents.some((a) => a.authStatus === "connected");
@@ -66,17 +73,52 @@ export function OnboardingCard({
     canonical.instructions.markdown.trim().length > 0 ||
     canonical.agentsMd.trim().length > 0;
 
+  // FR48 gap 1: the wizard didn't detect installed agents itself (that check
+  // only lived in the separate, unlinked Doctor panel). Reuses run_doctor
+  // directly — no detection logic re-derived here — and surfaces only the
+  // one signal that actually blocks Step 1 (no Node → npx can't spawn either
+  // npx-based agent). Runs once per mount, not on every render.
+  const [doctor, setDoctor] = useState<DoctorReport | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    runDoctor()
+      .then((r) => !cancelled && setDoctor(r))
+      .catch(() => {
+        /* best-effort — Step 1's auth badges already carry the real signal */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const nodeMissing = doctor !== null && doctor.nodeVersion === null;
+
+  // FR48 gap 2: no dedicated secret-binding step existed. "Done" means either
+  // nothing to bind (no ${VAR} references anywhere) or every reference that
+  // exists actually resolves — reuses audit_secret_bindings directly, same
+  // as SecretBindings.tsx, rather than re-deriving resolvability here.
+  const [bindings, setBindings] = useState<SecretBinding[] | null>(null);
+  const serversKey = JSON.stringify(canonical.servers);
+  useEffect(() => {
+    let cancelled = false;
+    auditSecretBindings(canonical.servers)
+      .then((b) => !cancelled && setBindings(b))
+      .catch(() => {
+        /* best-effort — SecretBindings.tsx in the Config tab is the real surface */
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serversKey]);
+  const unresolvedSecrets = (bindings ?? []).filter((b) => !b.resolvable);
+  const secretsDone = bindings !== null && unresolvedSecrets.length === 0;
+
   return (
-    <motion.div
-      className="glass-card onboarding"
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      // Height collapses on exit too, or the thread below jumps up by the
-      // card's full height the instant the fade finishes.
-      exit={{ opacity: 0, scale: 0.98, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }}
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-    >
+    // Plain div, not motion.div: framer-motion transitions were found to
+    // never complete in this app (see OnboardingTour.tsx's native-Radix-mount
+    // note), which pinned this card at opacity 0 forever — invisible on every
+    // load despite being fully mounted underneath.
+    <div className="glass-card onboarding">
       <div className="onboarding-head">
         <h3 className="card-title">
           <Icon name="sparkles" /> Get set up
@@ -108,6 +150,17 @@ export function OnboardingCard({
               </button>
             </>
           )}
+          {nodeMissing && (
+            <>
+              <p className="onboard-hint onboard-warning">
+                <Icon name="alert" /> Node.js wasn't detected — Claude and Codex both launch via{" "}
+                <code>npx</code>, so neither can start until it's installed.
+              </p>
+              <button className="btn btn-sm btn-ghost" onClick={onOpenDoctor}>
+                <Icon name="activity" /> Open Doctor for the full picture
+              </button>
+            </>
+          )}
         </Step>
 
         <Step done={connected} label="Start a session in the Run tab">
@@ -132,6 +185,28 @@ export function OnboardingCard({
           </div>
         </Step>
 
+        <Step done={secretsDone} label="Bind any secrets your config needs">
+          {bindings === null ? (
+            <p className="onboard-hint">Checking…</p>
+          ) : bindings.length === 0 ? (
+            <p className="onboard-hint">No <code>{"${VAR}"}</code> references yet — nothing to bind.</p>
+          ) : unresolvedSecrets.length > 0 ? (
+            <p className="onboard-hint onboard-warning">
+              <Icon name="alert" /> {unresolvedSecrets.length} secret
+              {unresolvedSecrets.length === 1 ? "" : "s"} ({unresolvedSecrets.map((b) => b.envName).join(", ")}
+              ) unresolved — never a literal token, just a <code>{"${VAR}"}</code> reference waiting on
+              an env var or keychain entry.
+            </p>
+          ) : (
+            <p className="onboard-hint">
+              All {bindings.length} secret reference{bindings.length === 1 ? "" : "s"} resolve.
+            </p>
+          )}
+          <button className="btn btn-sm" onClick={onGoConfig}>
+            <Icon name="key" /> Open Config → Secret bindings
+          </button>
+        </Step>
+
         <Step done={hasProfile} label="Run your first profile">
           {/* Not gated on `connected` — the Profile tab explicitly supports the
               no-session paste-a-CoderProfile-JSON path. */}
@@ -140,6 +215,6 @@ export function OnboardingCard({
           </button>
         </Step>
       </ol>
-    </motion.div>
+    </div>
   );
 }

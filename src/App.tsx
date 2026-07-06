@@ -1,5 +1,5 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { MotionConfig, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AccentSwitcher } from "./components/AccentSwitcher";
 import { AgentPicker } from "./components/AgentPicker";
@@ -25,7 +25,6 @@ import {
   type PermissionPreset,
   type PermissionPresetMap,
 } from "./state/permissionPresets";
-import { PANEL_ENTER, PANEL_EXIT } from "./state/motion";
 import { load, save } from "./state/persist";
 import { applyAccentValue, type AccentValue } from "./state/theme";
 import { useToast } from "./state/toast";
@@ -408,15 +407,13 @@ export default function App() {
         <TabBar tabs={TABS} active={tab} onChange={setTab} />
       </header>
 
-      <AnimatePresence initial={false}>
+      {/* Plain conditional, not motion.div/AnimatePresence: framer-motion
+          transitions were found to never complete in this app for anything
+          mounted after the very first paint (see OnboardingTour.tsx's
+          native-Radix-mount note) — connectError only ever becomes true well
+          after mount, so this banner would render pinned at opacity 0
+          forever the first time a connection actually failed. */}
       {connectError && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          style={{ overflow: "hidden" }}
-        >
         <div className="banner banner-error" role="alert">
           <Icon name="alert" />
           <div className="banner-body">
@@ -439,41 +436,39 @@ export default function App() {
             <Icon name="x" />
           </button>
         </div>
-        </motion.div>
       )}
-      </AnimatePresence>
 
       <main className="app-main">
-        <AnimatePresence mode="wait">
-          {/* Fade-through: fast ease-in exit, slower ease-out entry — motion
-              concentrates in the persistent tab pill, panels just swap. The
-              className continues the flex/min-height chain so each panel (and
-              the Run tab's thread) scrolls internally under fixed chrome. */}
-          <motion.div
-            key={tab}
-            className="tab-panel"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0, transition: PANEL_ENTER }}
-            exit={{ opacity: 0, transition: PANEL_EXIT }}
-          >
+          {/* Plain div, not motion.div/AnimatePresence mode="wait": that
+              combination was found to never fire its completion callback in
+              this app (see OnboardingTour.tsx's native-Radix-mount note) —
+              every tab-panel mount got pinned at its `initial` keyframe
+              (opacity 0) from the very first paint and never became visible,
+              making Run/Config/Handoff/Profile content permanently invisible
+              regardless of which tab was selected. The className continues
+              the flex/min-height chain so each panel (and the Run tab's
+              thread) scrolls internally under fixed chrome. */}
+          <div key={tab} className="tab-panel">
             {tab === "run" && (
               <div className="panel">
-                <AnimatePresence>
-                  {!onboardingDismissed && !tourOpen && (
-                    <OnboardingCard
-                      agents={agents}
-                      connected={connected}
-                      hasProfile={hasProfile}
-                      canImport={cwd.trim().length > 0}
-                      importing={importing}
-                      onGoConfig={() => setTab("config")}
-                      onGoProfile={() => setTab("profile")}
-                      onRecheck={refreshAgents}
-                      onImportConfig={importConfig}
-                      onDismiss={() => setOnboardingDismissed(true)}
-                    />
-                  )}
-                </AnimatePresence>
+                {/* Plain conditional, not AnimatePresence: see the tab-panel
+                    note above — framer-motion transitions never complete in
+                    this app, so a mount gated on one never becomes visible. */}
+                {!onboardingDismissed && !tourOpen && (
+                  <OnboardingCard
+                    agents={agents}
+                    connected={connected}
+                    hasProfile={hasProfile}
+                    canImport={cwd.trim().length > 0}
+                    importing={importing}
+                    onGoConfig={() => setTab("config")}
+                    onGoProfile={() => setTab("profile")}
+                    onRecheck={refreshAgents}
+                    onImportConfig={importConfig}
+                    onOpenDoctor={() => setDoctorOpen(true)}
+                    onDismiss={() => setOnboardingDismissed(true)}
+                  />
+                )}
                 <RunView stream={stream} agents={agents} />
               </div>
             )}
@@ -504,8 +499,7 @@ export default function App() {
                 <ProfilePanel stream={stream} />
               </div>
             )}
-          </motion.div>
-        </AnimatePresence>
+          </div>
       </main>
     </div>
     <CommandPalette open={paletteOpen} commands={commands} onClose={() => setPaletteOpen(false)} />
