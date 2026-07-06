@@ -12,7 +12,10 @@ import { ThreadView } from "./ThreadView";
 // that is reachable at all times during an in-flight turn (UI-NFR3). Identical for
 // every agent — nothing here branches on which agent is connected.
 export function RunView({ stream, agents }: { stream: AgentStream; agents?: AgentInfo[] }) {
-  if (stream.session === null) {
+  const disconnected = stream.session === null;
+  // Only a truly empty state gets the empty panel — after a disconnect the
+  // transcript is deliberately kept on screen (read-only) until the next connect.
+  if (disconnected && stream.messages.length === 0) {
     return (
       <PanelEmpty
         icon="cpu"
@@ -48,18 +51,24 @@ export function RunView({ stream, agents }: { stream: AgentStream; agents?: Agen
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="composer" data-tour-step="composer">
-        <PromptInput disabled={composerDisabled} pausedReason={pausedReason} onSend={stream.prompt} />
-        {stream.turnActive && (
-          <button
-            className="btn btn-ghost btn-stop"
-            onClick={stream.cancel}
-            title="Cancel the in-flight turn"
-          >
-            <Icon name="stop" /> Stop
-          </button>
-        )}
-      </div>
+      {disconnected ? (
+        <p className="thread-empty">
+          Session ended — the thread above is kept for reference. Connect above to start fresh.
+        </p>
+      ) : (
+        <div className="composer" data-tour-step="composer">
+          <PromptInput disabled={composerDisabled} pausedReason={pausedReason} onSend={stream.prompt} />
+          {stream.turnActive && (
+            <button
+              className="btn btn-ghost btn-stop"
+              onClick={stream.cancel}
+              title="Cancel the in-flight turn"
+            >
+              <Icon name="stop" /> Stop
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

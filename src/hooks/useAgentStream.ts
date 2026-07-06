@@ -153,6 +153,9 @@ export function useAgentStream(): AgentStream {
       const sid = await ipc.startSession(id, cwd, onEvent);
       setSession(sid);
       setAgentId(id);
+      // A fresh connect starts a fresh thread (a disconnect deliberately keeps
+      // the old transcript on screen until this point — see disconnect below).
+      setMessages([]);
     },
     [onEvent],
   );
@@ -244,7 +247,14 @@ export function useAgentStream(): AgentStream {
     agentRef.current = null;
     setSession(null);
     setAgentId(null);
-    setMessages([]);
+    // Keep the transcript: the app triple-gates overwriting a config file —
+    // it shouldn't discard an hour of conversation on one un-confirmed click.
+    // An honest system note marks the boundary; the next connect clears it.
+    setMessages((prev) =>
+      prev.length === 0
+        ? prev
+        : [...prev, { id: newId(), role: "system", text: "Session ended — thread kept for reference until the next connect." }],
+    );
     setPendingEdit(null);
     setTurnActive(false);
     setError(null);

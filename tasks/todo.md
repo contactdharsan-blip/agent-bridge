@@ -308,6 +308,42 @@ set, root `MotionConfig reducedMotion="user"`, verify per batch with
 - [ ] **V. Verify** — adversarial self-review of the loop's own diffs
       (lessons 2026-07-02), full gate, docs updated.
 
+## v1.6 — goal batch: color picker, agent-drafted handoff, token honesty, agent logos (2026-07-06)
+
+Goal (operator, via /goal): "add a color picker; app should be able to type in
+terminal and prompt claude code or cursor itself to get the data it needs; app
+should be upfront about how much tokens it may use; app logos should be there."
+All frontend-only; 🔴 contract untouched; honesty gates never weakened. The
+"prompt the agent itself" transport already exists (`stream.promptCapture`, used
+by the profile run) — the gap is a *visible general use*: the handoff snapshot
+is the most hand-typed surface in the app, so the app now asks the outgoing
+agent to draft it. Verify per batch: `npm run typecheck && npm run build &&
+npm test` + headless-Chromium visual pass.
+
+- [ ] **G1. Color picker (custom accent).** `theme.ts` grows pure derivation
+      (`hexToRgbTriplet`, darken/lighten, hue-shifted secondary →
+      `deriveAccent(hex): Accent`); accent persisted as preset-name-or-hex
+      string (backwards compatible with stored "emerald"). `AccentSwitcher`
+      keeps the 3 radio dots and adds a native `<input type="color">` custom
+      swatch. Unit tests on the derivation.
+- [ ] **G2. Agent-drafted snapshot.** `handoff/draftFromAgent.ts`: strict
+      draft prompt + `parseSnapshotDraft` boundary parser (closed status enum,
+      type-guarded fields, caps; null on no-JSON — same at-the-boundary
+      discipline as validate_profile). HandoffPanel gets "Draft from {source}"
+      → upfront token estimate + confirm → `promptCapture` → fills the SAME
+      editable fields (user still reviews; carry-diff ack untouched). Table
+      tests on the parser.
+- [ ] **G3. Upfront token estimates.** `state/tokenEstimate.ts` (~4 chars/token
+      heuristic, honestly labeled as a rough estimate — never a billed number).
+      Shown: PromptInput live chip, ProfileCollector pre-run line (plus the
+      honest note that in-session history reading costs more on the agent's
+      side), HandoffPanel draft confirm, CarryDiff brief-send line. Unit tests.
+- [ ] **G4. Agent logos.** `AgentLogo.tsx`: hand-authored inline-SVG marks
+      (CLAUDE.md rule: no icon library, no emoji) keyed by registry id
+      (claude/codex/cursor) with a generic fallback — display metadata like
+      displayName, not a behavior branch (M2 win condition holds). Used in
+      AgentPicker status chips + assistant bubble attribution.
+
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.
 - JSON Schema on every Profile Skill output — validate + reject at the boundary (M5b).

@@ -85,18 +85,22 @@ export default function App() {
     // other "Importing…" label lives on the (dismissable) onboarding card.
     toast.push("info", `Importing existing config from ${cwd.trim()}…`);
     try {
-      await runImportWizard({
+      const { imported } = await runImportWizard({
         cwd: cwd.trim(),
         servers: canonical.servers,
+        instructions: canonical.instructions.markdown,
         setServers: canonical.setServers,
         setInstructions: canonical.setInstructions,
         toast: toast.push,
       });
+      // The result materializes in the Config tab — go where the outcome is
+      // instead of reporting success toward an off-screen surface.
+      if (imported) setTab("config");
     } finally {
       setImporting(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cwd, canonical.servers, canonical.setServers, canonical.setInstructions, toast]);
+  }, [cwd, canonical.servers, canonical.instructions.markdown, canonical.setServers, canonical.setInstructions, toast]);
 
   // Re-pollable so the onboarding/tour instruction ("set the key or log in via
   // the CLI, then re-check") is actually completable — auth can change without

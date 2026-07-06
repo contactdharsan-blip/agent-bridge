@@ -41,14 +41,18 @@ const IMPORT_TARGETS: Target[] = ["claude", "codex", "cursor"];
 export async function runImportWizard(params: {
   cwd: string;
   servers: McpServer[];
+  /** Current canonical instructions — a non-empty, differing doc is never
+   * silently replaced (the app blocks every disk write behind a review; its
+   * own source of truth deserves the same protection). */
+  instructions: string;
   setServers: (next: McpServer[]) => void;
   setInstructions: (markdown: string) => void;
   toast: (kind: ToastKind, text: string) => void;
-}): Promise<void> {
-  const { cwd, servers, setServers, setInstructions, toast } = params;
+}): Promise<{ imported: boolean }> {
+  const { cwd, servers, instructions, setServers, setInstructions, toast } = params;
   if (!cwd.trim()) {
     toast("info", "Set a working directory before importing an existing config");
-    return;
+    return { imported: false };
   }
 
   let merged = servers;
@@ -69,13 +73,20 @@ export async function runImportWizard(params: {
   if (importedServers) setServers(merged);
 
   let importedInstructions: string | null = null;
+  let keptInstructions: string | null = null;
   for (const target of IMPORT_TARGETS) {
     const path = INSTRUCTIONS_FILE[target];
     try {
       const raw = await readNativeFile(cwd, path);
       if (raw && raw.trim()) {
-        setInstructions(raw);
-        importedInstructions = path;
+        if (instructions.trim() && instructions.trim() !== raw.trim()) {
+          // Canonical already holds a different doc — keep it and say so,
+          // rather than clobbering the source of truth unreviewed.
+          keptInstructions = path;
+        } else {
+          setInstructions(raw);
+          importedInstructions = path;
+        }
         break;
       }
     } catch {
@@ -85,9 +96,16 @@ export async function runImportWizard(params: {
   }
 
   if (importedInstructions) toast("success", `Imported instructions from ${importedInstructions}`);
+  if (keptInstructions) {
+    toast(
+      "info",
+      `Kept your canonical instructions — ${keptInstructions} differs; replace them by hand in Config if the on-disk version should win`,
+    );
+  }
   if (importedServers || importedInstructions) {
     toast("success", "Imported existing native config into the canonical store");
-  } else {
+  } else if (!keptInstructions) {
     toast("info", `No existing native config files found under ${cwd}`);
   }
+  return { imported: importedServers || importedInstructions !== null };
 }

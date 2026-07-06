@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { readNativeFile, writeNativeFile } from "../../engines";
 import type { InstructionArtifact } from "../../engineTypes";
+import { prefersReducedMotion } from "../../state/motion";
 import { useToast } from "../../state/toast";
 import { Icon } from "../Icon";
 import type { AsyncState } from "./hooks";
@@ -29,6 +30,27 @@ export function InstructionsPreview({
   const [overwrite, setOverwrite] = useState<
     null | { path: string; contents: string; onDisk: string }
   >(null);
+
+  // A pending overwrite review is keyed to the projection it was opened for —
+  // if the projection re-renders (user edited the canonical instructions, or
+  // the target switched), the reviewed pair is stale and the gate must reset
+  // rather than write outdated contents past a review of something else.
+  useEffect(() => {
+    setOverwrite(null);
+  }, [data?.path, data?.contents]);
+
+  // The gate renders below a 20rem-capped <pre>; without this, clicking
+  // "Write instructions" (in the header, top of the card) appears to do
+  // nothing — the review it opened is below the fold.
+  const gateRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (overwrite) {
+      gateRef.current?.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: "nearest",
+      });
+    }
+  }, [overwrite]);
 
   const copy = async (contents: string, path: string) => {
     try {
@@ -118,7 +140,7 @@ export function InstructionsPreview({
           <pre className="code-preview">{data.contents}</pre>
 
           {overwrite && overwrite.path === data.path && (
-            <div className="drift-write">
+            <div className="drift-write" ref={gateRef}>
               <h4 className="card-title">
                 <Icon name="shield" /> Drift review
               </h4>

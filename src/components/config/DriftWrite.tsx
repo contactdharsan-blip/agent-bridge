@@ -88,8 +88,20 @@ export function DriftWrite({
   const [manualOpen, setManualOpen] = useState(false);
   const [manualText, setManualText] = useState("");
   const [drift, setDrift] = useState<DriftState>({ phase: "idle" });
+  // The explicit "I reviewed the drift" acknowledgement — required ONLY when
+  // the comparison found real drift (the dangerous case). Clean verdicts
+  // (missing / inSync) have nothing to clobber and need no ceremony. This is
+  // STRONGER than the old click-"Check drift"-to-unlock: a click proved the
+  // check ran, not that anyone read the result.
+  const [driftAcked, setDriftAcked] = useState(false);
   const [applied, setApplied] = useState<null | "written" | "copied" | "manual">(null);
   const toast = useToast();
+
+  // Any transition away from a completed verdict (re-check starting, basis
+  // change → idle) revokes the acknowledgement with it.
+  useEffect(() => {
+    if (drift.phase !== "done") setDriftAcked(false);
+  }, [drift.phase]);
 
   // Auto-read the on-disk file whenever the target or working directory
   // changes, and reset the review gate — a new file (or a new projection
@@ -148,8 +160,11 @@ export function DriftWrite({
   // resolves as phase "done" with status "unreadable", i.e. no comparison
   // actually happened — must not count as reviewed, or a hand-edited native
   // file could be clobbered unseen. Still reading from disk also blocks it.
-  const reviewed =
+  // On top of that, a DRIFTED verdict blocks until explicitly acknowledged.
+  const compared =
     drift.phase === "done" && drift.status.status !== "unreadable" && read.phase !== "reading";
+  const needsAck = compared && drift.phase === "done" && drift.status.status === "drifted";
+  const reviewed = compared && (!needsAck || driftAcked);
 
   const runCheck = () => {
     setDrift({ phase: "checking" });
@@ -157,6 +172,29 @@ export function DriftWrite({
       .then((status) => setDrift({ phase: "done", status }))
       .catch((e) => setDrift({ phase: "error", message: String(e) }));
   };
+
+  // Auto-compare as soon as an auto-read lands: the check is read-only, so
+  // running it costs nothing and removes the dead "Check drift" click. Never
+  // fires in manual-paste mode (a paste is checked deliberately), and any
+  // basis change resets drift to idle above, which re-arms this. The BLOCKING
+  // part of the gate is unchanged — it lives in `reviewed`, not in who
+  // triggered the comparison.
+  useEffect(() => {
+    if (usingManual || read.phase !== "ok" || drift.phase !== "idle") return;
+    setDrift({ phase: "checking" });
+    let cancelled = false;
+    checkDrift(target, read.contents, servers)
+      .then((status) => {
+        if (!cancelled) setDrift({ phase: "done", status });
+      })
+      .catch((e) => {
+        if (!cancelled) setDrift({ phase: "error", message: String(e) });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usingManual, read, drift.phase, serversKey, target]);
 
   const apply = async () => {
     if (!contents) return;
@@ -200,7 +238,7 @@ export function DriftWrite({
       </h4>
       <p className="card-sub">
         {cwd.trim()
-          ? `The current contents of ${path} are read automatically for comparison. Review is required before the approved config can be written.`
+          ? `${path} is read from disk and compared with the projection automatically. A clean verdict unlocks the write; real drift must be explicitly acknowledged first.`
           : `Set a working directory above to read ${path} automatically, or paste its current contents below.`}
       </p>
 
@@ -244,29 +282,11 @@ export function DriftWrite({
         </button>
       )}
 
-      <div className="drift-actions">
-        <button
-          className="btn btn-sm"
-          onClick={runCheck}
-          disabled={drift.phase === "checking" || read.phase === "reading"}
-        >
-          <Icon name="refresh" /> {drift.phase === "checking" ? "Checking…" : "Check drift"}
-        </button>
-        <button
-          className="btn btn-sm btn-primary"
-          onClick={apply}
-          disabled={!reviewed || !contents}
-          aria-describedby={!reviewed ? "drift-blocked" : undefined}
-        >
-          <Icon name="check" /> {cwd.trim() ? "Write approved config" : "Copy approved config"}
-        </button>
-      </div>
-      {!reviewed && (
-        <p className="callout callout-warning" id="drift-blocked">
-          <Icon name="alert" /> Check drift above before applying the config.
-        </p>
+      {/* Verdict FIRST, actions after it — the write button sits below the
+          evidence it depends on, not above the fold from it. */}
+      {drift.phase === "checking" && (
+        <div className="skeleton skeleton-block" aria-label="comparing with the projection" />
       )}
-
       {drift.phase === "done" && (
         <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
           <DriftResult status={drift.status} />
@@ -281,6 +301,48 @@ export function DriftWrite({
         >
           <Icon name="x" /> Drift check failed: {drift.message}
         </motion.div>
+      )}
+      {needsAck && (
+        <label className="carry-ack">
+          <input
+            type="checkbox"
+            checked={driftAcked}
+            onChange={(e) => setDriftAcked(e.target.checked)}
+          />
+          I've reviewed the drift above — overwrite the on-disk file.
+        </label>
+      )}
+
+      <div className="drift-actions">
+        <button
+          className="btn btn-sm"
+          onClick={runCheck}
+          disabled={drift.phase === "checking" || read.phase === "reading"}
+        >
+          <Icon name="refresh" /> {drift.phase === "checking" ? "Checking…" : "Re-check drift"}
+        </button>
+        <button
+          className="btn btn-sm btn-primary"
+          onClick={apply}
+          disabled={!reviewed || !contents}
+          aria-describedby={!reviewed ? "drift-blocked" : undefined}
+        >
+          <Icon name="check" /> {cwd.trim() ? "Write approved config" : "Copy approved config"}
+        </button>
+      </div>
+      {!reviewed && (
+        <p className="callout callout-warning" id="drift-blocked">
+          <Icon name="alert" />{" "}
+          {drift.phase === "checking" || read.phase === "reading"
+            ? "Comparing the on-disk file with the projection…"
+            : needsAck
+              ? "Confirm you've reviewed the drift above before overwriting."
+              : drift.phase === "done"
+                ? "The on-disk file couldn't be read for comparison — fix it or paste its contents manually."
+                : drift.phase === "error"
+                  ? "The drift check failed — re-check before applying."
+                  : "Check drift above before applying the config."}
+        </p>
       )}
       {applied === "written" && (
         <motion.div
