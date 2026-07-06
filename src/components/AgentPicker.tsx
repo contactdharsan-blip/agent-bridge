@@ -18,12 +18,14 @@ export function AgentPicker({
   connecting,
   connected,
   preset,
+  hasConversation,
   onSelect,
   onCwdChange,
   onConnect,
   onDisconnect,
   onRecheck,
   onPresetChange,
+  onGoToHandoff,
 }: {
   agents: AgentInfo[];
   selected: string;
@@ -32,14 +34,35 @@ export function AgentPicker({
   connecting: boolean;
   connected: boolean;
   preset: PermissionPreset;
+  /** Whether the active session has any messages worth not losing silently
+   * (UI-FR08) — gates the disconnect-to-switch nudge below. */
+  hasConversation: boolean;
   onSelect: (id: string) => void;
   onCwdChange: (cwd: string) => void;
   onConnect: () => void;
   onDisconnect: () => void;
   onRecheck: () => Promise<void>;
   onPresetChange: (preset: PermissionPreset) => void;
+  /** Switch to the Handoff tab instead of disconnecting, keeping this session
+   * live so its carry-diff can still be built. */
+  onGoToHandoff: () => void;
 }) {
   const current = agents.find((a) => a.id === selected);
+  // Disconnect+reconnect-to-a-different-agent is a second, ungated way to
+  // switch agents (UI-FR08) — it works, but silently skips the Handoff panel's
+  // carry-diff review. Since Disconnect is itself an honest, standalone action
+  // (it says plainly the session ended), this doesn't block it — it only
+  // nudges toward the reviewed path when there's an actual conversation and an
+  // actual alternative agent to carry it to.
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+  const canSwitchAgents = agents.length > 1;
+  const handleDisconnectClick = () => {
+    if (hasConversation && canSwitchAgents) {
+      setConfirmingDisconnect(true);
+    } else {
+      onDisconnect();
+    }
+  };
   // Never let a session start against an agent the core reports as errored (US-E1.4).
   const blocked = current?.authStatus === "error";
   // No API key set — not a blocker: the agent's own login (subscription/OAuth)
@@ -126,7 +149,7 @@ export function AgentPicker({
         {connected && (
           <button
             className="btn btn-sm btn-disconnect"
-            onClick={onDisconnect}
+            onClick={handleDisconnectClick}
             title="End this session and start fresh"
           >
             <Icon name="x" /> Disconnect
@@ -159,6 +182,38 @@ export function AgentPicker({
             your existing {current?.displayName} login (subscription or OAuth). No key needed; just
             Connect.
           </motion.p>
+        )}
+        {confirmingDisconnect && connected && (
+          <motion.div key="confirm-disconnect" className="callout callout-honesty" {...noteMotion}>
+            <Icon name="info" />
+            <span>
+              Disconnecting won't carry this conversation to a new agent — Handoff can switch agents
+              with a reconstructed brief instead.
+            </span>
+            <div className="callout-actions">
+              <button
+                className="btn btn-sm"
+                onClick={() => {
+                  setConfirmingDisconnect(false);
+                  onGoToHandoff();
+                }}
+              >
+                Go to Handoff
+              </button>
+              <button
+                className="btn btn-sm btn-ghost"
+                onClick={() => {
+                  setConfirmingDisconnect(false);
+                  onDisconnect();
+                }}
+              >
+                Disconnect anyway
+              </button>
+              <button className="btn btn-sm btn-ghost" onClick={() => setConfirmingDisconnect(false)}>
+                Cancel
+              </button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -396,12 +396,14 @@ export default function App() {
           connecting={connecting}
           connected={connected}
           preset={preset}
+          hasConversation={stream.messages.length > 0}
           onSelect={setSelected}
           onCwdChange={setCwd}
           onConnect={connect}
           onDisconnect={stream.disconnect}
           onRecheck={refreshAgents}
           onPresetChange={setPreset}
+          onGoToHandoff={() => setTab("handoff")}
         />
         <TabBar tabs={TABS} active={tab} onChange={setTab} />
       </header>

@@ -492,11 +492,23 @@ worst-first.
       instead of hanging. Verified: `cargo test --workspace` + `cargo clippy
       --workspace --all-targets` + `npm run typecheck && npm run build && npm
       test` (70/70) all green.
-- [ ] **UI-FR08 — carry-diff gate has a bypass.** The header `AgentPicker`'s
-      Disconnect+reconnect changes the active agent directly, skipping the
-      Handoff panel's carry-diff entirely — a second, ungated switch path
-      alongside the honest one (`src/components/handoff/CarryDiff.tsx`'s gate
-      only covers the Handoff-panel-initiated switch).
+- [x] **UI-FR08 — carry-diff gate has a bypass.** FIXED (2026-07-06). The header
+      `AgentPicker`'s Disconnect+reconnect changed the active agent directly,
+      skipping the Handoff panel's carry-diff entirely. Deliberately NOT
+      hard-blocked — Disconnect is itself an honest, standalone action (it
+      already says plainly the session ended) and forcing every disconnect
+      through Handoff would be real overreach for a legitimate "just start
+      fresh" click. Instead: `AgentPicker` now nudges (a `callout-honesty`
+      inline note, not a modal) only when there's an actual conversation
+      (`hasConversation`) AND an actual alternative agent to switch to
+      (`agents.length > 1`) — "Go to Handoff" (switches tab, keeps the session
+      live so its carry-diff can still be built) / "Disconnect anyway" /
+      "Cancel". New `callout-actions` CSS class (forces the button row onto
+      its own line via the honesty variant's existing flex-wrap). Not
+      exercisable in the plain browser harness — gated behind a real
+      `connected` session (live IPC), same caveat as other Tauri-gated
+      surfaces; operator-verifiable via `npm run tauri dev`. Verified:
+      `npm run typecheck && npm run build && npm test` (70/70) green.
 - [ ] **`OnboardingTour.tsx` mislabeled + contradicts its own spec.** PRD reuses
       "UI-FR28" for two different requirements (§6 linear wizard vs §11 addendum
       inline checklist); the Tour's own comments claim UI-FR28 but it satisfies

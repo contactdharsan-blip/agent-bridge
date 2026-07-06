@@ -530,6 +530,14 @@ body {
   letter-spacing: 0.08em;
   opacity: 0.8;
 }
+/* A .callout-honesty's own action row (e.g. "Go to Handoff" / "Disconnect
+ * anyway") — forces onto its own line via the honesty variant's flex-wrap. */
+.callout-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-basis: 100%;
+  margin-top: var(--space-1);
+}
 .callout-warning {
   border-color: rgba(var(--color-warning-rgb), 0.3);
   background: rgba(var(--color-warning-rgb), 0.08);
