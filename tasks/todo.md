@@ -412,6 +412,19 @@ checked per lessons 2026-07-06).
 UI-FR1-34 vs code), read-only, no fixes applied yet. Full findings below; ranked
 worst-first.
 
+**Closure (2026-07-06, via `/goal`):** all 9 actionable findings fixed —
+the P0 (`cancel()` no-op, plus a deeper dispatch-loop deadlock it uncovered),
+UI-FR06 (non-diff permission hang), UI-FR08 (carry-diff bypass), FR25
+(auto-reproject), FR47 (open-native-login), FR40 (deep-scan option), FR41
+(friction dismiss), FR48 (onboarding gaps), and the OnboardingTour mislabel —
+each its own commit, full gate (`cargo test --workspace` + `cargo clippy
+--workspace --all-targets` + `npm run typecheck && npm run build && npm
+test`, 92/92) green throughout. The remaining unchecked items below (Windows
+`.exe`, Finder Automation permission, VibeIndex browser-pass, FR50 signing,
+FR31's 2-of-3 tiers, the marketplace-index stub) are all correctly
+operator-only or already-deferred — see "Confirmed non-issues" at the end of
+this section and `tasks/operator-todo.md`.
+
 ### 🔴 P0 — real bug, not a doc gap
 - [x] **`cancel()` is a no-op in the real ACP host.** FIXED (2026-07-06). Test-first
       ritual: added `cancel_stops_an_in_flight_turn_via_real_notification` to
