@@ -488,9 +488,18 @@ worst-first.
       sensible default" is the engineering gap that was actually open, and is
       now closed. Verified: `npm run typecheck && npm run build && npm test`
       (88/88) green.
-- [ ] **FR41 dismiss/curate friction patterns.** `frictionPoints` typed
-      `unknown[]` in `src/engineTypes.ts`, never rendered in any profile
-      component — no dismiss action can exist because nothing displays them.
+- [x] **FR41 dismiss/curate friction patterns.** FIXED (2026-07-06). Typed
+      `frictionPoints` properly in `engineTypes.ts` (new `FrictionPattern`
+      closed union + `FrictionPoint` interface, mirroring
+      `crates/profile/src/schema.rs` / `coder_profile.schema.json` exactly)
+      instead of `unknown[]`. `MergedView.tsx` now renders a "Friction
+      patterns" section (friendly labels, evidence examples, which agent,
+      frequency) with a Dismiss action per pattern. New
+      `state/dismissedFriction.ts` — a local display preference (there's no
+      backend command for this; frictionPoints is emitted fresh by every
+      run), reversible via a "N dismissed — show" toggle + Undismiss, so
+      curating never becomes a silent one-way black hole. Verified: `npm run
+      typecheck && npm run build && npm test` (92/92) green.
 - [ ] **FR50 signed cross-platform packaging.** `.github/workflows/desktop-build.yml`
       states outright "unsigned dev builds"; no signing/notarize block in
       `tauri.conf.json` (tracked already in `operator-todo.md`).

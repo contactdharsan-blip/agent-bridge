@@ -82,12 +82,33 @@ export interface ContextSnapshot {
 
 // ---- profile --------------------------------------------------------------
 // Kept structural; the Rust validator is the source of truth (validate_profile).
+
+// The closed friction taxonomy (crates/profile/src/schema.rs FrictionPattern /
+// coder_profile.schema.json's frictionPattern enum) — FR41.
+export type FrictionPattern =
+  | "prematureSolution"
+  | "repeatedInstruction"
+  | "contextBloat"
+  | "retryLoop"
+  | "abandonOnStall"
+  | "toolMisfire"
+  | "authFriction"
+  | "scopeCreep"
+  | "other";
+
+export interface FrictionPoint {
+  pattern: FrictionPattern;
+  evidenceExamples: string[];
+  whichAgent: Agent;
+  frequency: number;
+}
+
 export interface CoderProfile {
   schemaVersion: number;
   agent: Agent;
   data: { sessionsAnalyzed: number; daysCovered: number; messagesAnalyzed: number };
   taskMix: { category: string; fraction: number }[];
-  frictionPoints: unknown[];
+  frictionPoints: FrictionPoint[];
   repeatedInstructions: { text: string; occurrences: number; candidateRule: string }[];
   toolUsage: Record<string, number>;
   efficiency: Record<string, number>;
@@ -101,7 +122,7 @@ export interface AgentWeight { agent: Agent; weight: number; confidence: number 
 export interface MergedProfile {
   agents: AgentWeight[];
   taskMix: { category: string; fraction: number }[];
-  frictionPoints: unknown[];
+  frictionPoints: FrictionPoint[];
   repeatedInstructions: { text: string; occurrences: number; candidateRule: string }[];
   toolUsageByAgent: unknown[];
   strengths: string[];
