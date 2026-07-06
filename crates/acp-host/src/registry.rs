@@ -95,7 +95,11 @@ fn npx(package: &str) -> (String, Vec<String>) {
 pub fn adapter_for(agent_id: &str) -> Option<AdapterSpec> {
     match agent_id {
         CLAUDE => {
-            let (command, args) = npx("@zed-industries/claude-code-acp@latest");
+            // @zed-industries/claude-code-acp was renamed upstream to
+            // @agentclientprotocol/claude-agent-acp ("please migrate to
+            // continue receiving updates" — the old name still installs but
+            // is frozen). Use the current package.
+            let (command, args) = npx("@agentclientprotocol/claude-agent-acp@latest");
             Some(AdapterSpec {
                 command,
                 args,
@@ -103,7 +107,9 @@ pub fn adapter_for(agent_id: &str) -> Option<AdapterSpec> {
             })
         }
         CODEX => {
-            let (command, args) = npx("@zed-industries/codex-acp@latest");
+            // @zed-industries/codex-acp was renamed upstream to
+            // @agentclientprotocol/codex-acp; same rationale as above.
+            let (command, args) = npx("@agentclientprotocol/codex-acp@latest");
             Some(AdapterSpec {
                 command,
                 args,
@@ -168,14 +174,28 @@ mod tests {
     fn claude_adapter_uses_npx_package() {
         let spec = adapter_for(CLAUDE).unwrap();
         assert_eq!(spec.command, "npx");
-        assert!(spec.args.iter().any(|a| a.contains("claude-code-acp")));
+        // The current, non-deprecated package — @zed-industries/claude-code-acp
+        // was renamed upstream to @agentclientprotocol/claude-agent-acp
+        // ("please migrate to continue receiving updates"). Match the new
+        // scope specifically so a regression back to the deprecated package
+        // (whose name also happens to contain "claude" and "acp") would fail
+        // this test, not slip through on a loose substring.
+        assert!(spec
+            .args
+            .iter()
+            .any(|a| a.contains("agentclientprotocol/claude-agent-acp")));
     }
 
     #[test]
     fn codex_adapter_uses_npx_package() {
         let spec = adapter_for(CODEX).unwrap();
         assert_eq!(spec.command, "npx");
-        assert!(spec.args.iter().any(|a| a.contains("codex-acp")));
+        // The current, non-deprecated package — @zed-industries/codex-acp was
+        // renamed upstream to @agentclientprotocol/codex-acp.
+        assert!(spec
+            .args
+            .iter()
+            .any(|a| a.contains("agentclientprotocol/codex-acp")));
     }
 
     #[test]
