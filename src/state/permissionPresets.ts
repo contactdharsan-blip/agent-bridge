@@ -1,21 +1,26 @@
-// Per-project permission preset (FR31): a default for how EditHunk permission
-// requests are resolved, instead of clicking accept/reject on every single one.
+// Per-project permission preset (FR31): a default for how permission requests
+// are resolved, instead of clicking accept/reject on every single one.
 //
 // The PRD's own language for this feature names 3 tiers modeled on Claude Code's
 // permission-mode vocabulary: "default" / "acceptEdits" / "bypass". This module
 // deliberately builds only the first two.
 //
-// Why: the frozen 🔴 ACP-host contract (`crates/acp-host/src/contract.rs`)
-// defines the *entire* `AgentEvent` enum this app can ever receive, and it has
-// exactly one permission-shaped variant — `EditHunk` (a reviewable file-content
-// diff awaiting accept/reject). There is no separate "tool-call" or
-// "destructive-action" event distinct from a file edit. So a "bypass" preset
-// would have nothing more destructive to bypass than "acceptEdits" already
-// covers — adding one anyway would present the user with a distinction that
-// doesn't exist in the underlying system, which is exactly what NFR2
-// (honesty-by-design) exists to prevent. If a real destructive-action
-// `AgentEvent` variant is ever added (a 🔴-frozen-contract change, out of scope
-// here), a third tier can be added then — not before.
+// Why: the frozen 🔴 ACP-host contract (`crates/acp-host/src/contract.rs`) now
+// has TWO permission-shaped variants — `EditHunk` (a reviewable file-content
+// diff) and `PermissionRequest` (a generic ask, e.g. a shell-command approval;
+// added for UI-FR06) — but still nothing that flags an option as
+// "destructive" vs not. FR4's non-negotiable guard ("never auto-grant a
+// destructive mode") has no corresponding signal in the contract to check
+// against, so a "bypass" preset that widened auto-approval to
+// `PermissionRequest` couldn't actually honor FR4 — it would just be trusting
+// that no generic ask is ever destructive, which is false in general (a shell
+// command is exactly the kind of thing that can be). "acceptEdits" stays
+// scoped to `editHunk` alone (a file diff the user can review in the same
+// motion as approving it); `PermissionRequest` is deliberately excluded from
+// every preset, including this one — see `resolvePresetDecision` below. If a
+// real destructive-vs-safe distinction is ever added to the contract (a
+// 🔴-frozen-contract change, out of scope here), a third tier can be built
+// against it then — not before.
 export type PermissionPreset = "default" | "acceptEdits";
 
 import { load, save } from "./persist";
@@ -45,16 +50,14 @@ export function getPreset(presets: PermissionPresetMap, cwd: string): Permission
  * Pure decision function: given the preset in effect and the kind of event
  * under consideration, should it auto-resolve or be surfaced to the user?
  *
- * `eventType` is kept as a real parameter rather than hardcoded away because it
- * documents the actual constraint this preset operates under: today `editHunk`
- * is the *only* permission-shaped event the frozen ACP-host contract can emit
- * (see the module comment above), so this function only ever gets called with
- * "editHunk" — but the signature stays honest about what it's actually deciding
- * over instead of silently assuming that will always be true.
+ * `eventType` covers both of the contract's permission-shaped `AgentEvent`
+ * variants, but only `editHunk` can ever auto-resolve — see the module
+ * comment for why `permissionRequest` is deliberately excluded from every
+ * preset (including `acceptEdits`), not just currently unimplemented.
  */
 export function resolvePresetDecision(
   preset: PermissionPreset,
-  eventType: "editHunk",
+  eventType: "editHunk" | "permissionRequest",
 ): "accept" | "ask" {
   if (eventType === "editHunk" && preset === "acceptEdits") return "accept";
   return "ask";

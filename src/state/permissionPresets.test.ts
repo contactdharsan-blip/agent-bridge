@@ -33,6 +33,11 @@ describe("resolvePresetDecision", () => {
   it('auto-accepts an edit hunk under the "acceptEdits" preset', () => {
     expect(resolvePresetDecision("acceptEdits", "editHunk")).toBe("accept");
   });
+
+  it('never auto-resolves a generic permissionRequest, even under "acceptEdits" (UI-FR06 + FR4: not a reviewable diff, could be destructive)', () => {
+    expect(resolvePresetDecision("default", "permissionRequest")).toBe("ask");
+    expect(resolvePresetDecision("acceptEdits", "permissionRequest")).toBe("ask");
+  });
 });
 
 describe("getPreset", () => {

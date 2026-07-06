@@ -160,11 +160,22 @@ export function useAgentStream(): AgentStream {
             pushSystem(setMessages, `Auto-rejected a request ("${event.description}") that arrived after cancel`);
             break;
           }
-          // Always surfaced for manual approve/deny — never auto-resolved by
-          // the acceptEdits preset (see the comment above editHunk's preset
-          // check): this can be an arbitrary action (e.g. running a shell
-          // command), not a reviewable file diff.
-          setPendingPermission({ requestId: event.requestId, description: event.description });
+          // Routed through the same preset decision function as editHunk
+          // (always "ask" for this event type — see permissionPresets.ts) so
+          // the exclusion is one machine-checked source of truth, not a
+          // comment repeated at every call site.
+          const preset = getPreset(loadPresets(), cwdRef.current);
+          if (resolvePresetDecision(preset, "permissionRequest") === "accept") {
+            // Unreachable today (see permissionPresets.ts), kept so a future
+            // preset change is honored here automatically instead of silently
+            // not applying to this event type.
+            ipc.resolvePermission(event.requestId, "accept").catch((e) => {
+              pushSystem(setMessages, `Failed to auto-resolve "${event.description}": ${String(e)}`);
+            });
+            pushSystem(setMessages, `Auto-approved "${event.description}" (${preset} preset)`);
+          } else {
+            setPendingPermission({ requestId: event.requestId, description: event.description });
+          }
           break;
         }
         case "turnEnded": {
