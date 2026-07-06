@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CoderProfile } from "../../engineTypes";
-import { dominantProfile, extractJson } from "./profileRun";
+import { buildProfilePrompt, DEFAULT_PROFILE_DEPTH, dominantProfile, extractJson } from "./profileRun";
 
 function profile(agent: string, messagesAnalyzed: number): CoderProfile {
   return { agent, data: { messagesAnalyzed } } as unknown as CoderProfile;
@@ -18,6 +18,31 @@ describe("extractJson", () => {
   it("returns null when there is no object", () => {
     expect(extractJson("no json here")).toBeNull();
     expect(extractJson("}{")).toBeNull();
+  });
+});
+
+describe("buildProfilePrompt (FR40)", () => {
+  it("defaults to the cheaper recent scan", () => {
+    expect(DEFAULT_PROFILE_DEPTH).toBe("recent");
+    expect(buildProfilePrompt()).toBe(buildProfilePrompt("recent"));
+  });
+
+  it("asks for a recent, bounded window by default", () => {
+    expect(buildProfilePrompt("recent")).toMatch(/recent/i);
+    expect(buildProfilePrompt("recent")).not.toMatch(/as much.*as you can/i);
+  });
+
+  it("asks for everything available on deep scan, unbounded", () => {
+    expect(buildProfilePrompt("deep")).toMatch(/as much.*as you can/i);
+  });
+
+  it("still emits the same schema contract regardless of depth", () => {
+    for (const depth of ["recent", "deep"] as const) {
+      const p = buildProfilePrompt(depth);
+      expect(p).toMatch(/CoderProfile JSON/);
+      expect(p).toMatch(/schemaVersion/);
+      expect(p).toMatch(/Output ONLY the JSON object/);
+    }
   });
 });
 

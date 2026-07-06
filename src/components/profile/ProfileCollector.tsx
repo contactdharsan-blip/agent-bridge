@@ -2,11 +2,12 @@ import { useState } from "react";
 import { validateProfile } from "../../engines";
 import type { CoderProfile } from "../../engineTypes";
 import type { AgentStream } from "../../hooks/useAgentStream";
+import { load, save } from "../../state/persist";
 import { useToast } from "../../state/toast";
 import { estimateTokens, formatTokens, TOKEN_ESTIMATE_NOTE } from "../../state/tokenEstimate";
 import { agentLabel } from "../config/targets";
 import { Icon } from "../Icon";
-import { extractJson, PROFILE_PROMPT } from "./profileRun";
+import { buildProfilePrompt, DEFAULT_PROFILE_DEPTH, extractJson, type ProfileDepth } from "./profileRun";
 
 // Collect up to three per-agent profiles (UI-FR19/20). Two honest paths, both
 // funneled through validate_profile so non-conforming JSON is rejected at the
@@ -34,13 +35,25 @@ export function ProfileCollector({
   const [paste, setPaste] = useState("");
   const toast = useToast();
 
+  // FR40: persisted per-machine (not per-project — this is a "how thorough
+  // do you want scans in general" preference), defaulting to the cheaper
+  // "recent" scan.
+  const [depth, setDepth] = useState<ProfileDepth>(() =>
+    load<ProfileDepth>("settings.profileDepth", DEFAULT_PROFILE_DEPTH),
+  );
+  const setDepthPersisted = (d: ProfileDepth) => {
+    setDepth(d);
+    save("settings.profileDepth", d);
+  };
+  const prompt = buildProfilePrompt(depth);
+
   const runInSession = async () => {
     if (!stream.session) return;
     setError(null);
     setReason("other");
     setRunning(true);
     try {
-      const text = await stream.promptCapture(PROFILE_PROMPT);
+      const text = await stream.promptCapture(prompt);
       const json = extractJson(text);
       if (!json) throw new Error("No JSON object found in the agent's reply.");
       // From here a throw is a validate_profile boundary rejection (schema).
@@ -86,6 +99,30 @@ export function ProfileCollector({
 
       {stream.session ? (
         <div className="profile-run-row">
+          {/* FR40: recent (default, cheaper) vs deep scan — a real, larger
+              agent-side token cost the app can't meter, so it's an explicit
+              opt-in shown right next to the run action, not a hidden setting. */}
+          <div className="target-selector" role="group" aria-label="Scan depth">
+            <button
+              type="button"
+              aria-current={depth === "recent" ? "true" : undefined}
+              className={`seg ${depth === "recent" ? "seg-active" : ""}`}
+              disabled={running}
+              onClick={() => setDepthPersisted("recent")}
+            >
+              Recent
+            </button>
+            <button
+              type="button"
+              aria-current={depth === "deep" ? "true" : undefined}
+              className={`seg ${depth === "deep" ? "seg-active" : ""}`}
+              disabled={running}
+              onClick={() => setDepthPersisted("deep")}
+              title="Asks the agent to read as much local history as it can find, not just a recent window — real, larger cost on the agent's side."
+            >
+              Deep scan
+            </button>
+          </div>
           <button className="btn btn-sm btn-primary" onClick={runInSession} disabled={running || stream.turnActive}>
             <Icon name="sparkles" />{" "}
             {running ? "Running in session…" : `Run profile in ${agentLabel(stream.agentId ?? "")}`}
@@ -101,12 +138,14 @@ export function ProfileCollector({
           {/* Upfront cost: the invoking prompt is small and known, but the
               skill then reads local history *inside* the session — the agent's
               own usage scales with that history and can't be known here. Say
-              both, don't imply the small number is the whole cost. */}
+              both, don't imply the small number is the whole cost. Deep scan
+              gets its own, blunter warning since its whole point is reading
+              MORE, not a nuance worth burying in the same line as recent. */}
           {!running && (
             <p className="token-estimate" title={TOKEN_ESTIMATE_NOTE}>
-              sends ≈{formatTokens(estimateTokens(PROFILE_PROMPT))} prompt tokens ·{" "}
-              {TOKEN_ESTIMATE_NOTE}; the skill then reads local history in-session, so the agent's
-              own usage will be larger
+              sends ≈{formatTokens(estimateTokens(prompt))} prompt tokens · {TOKEN_ESTIMATE_NOTE}; the
+              skill then reads local history in-session, so the agent's own usage will be larger
+              {depth === "deep" ? " — deep scan asks for ALL available history, so expect meaningfully more" : ""}
             </p>
           )}
         </div>

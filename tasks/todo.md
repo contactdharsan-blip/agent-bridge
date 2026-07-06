@@ -475,8 +475,19 @@ worst-first.
       never auto-writes. Full gate green: `cargo test --workspace` + `cargo
       clippy --workspace --all-targets` + `npm run typecheck && npm run build
       && npm test` (84/84).
-- [ ] **FR40 deep-scan option.** `src/components/profile/profileRun.ts` has one
-      fixed `PROFILE_PROMPT`; no depth/window parameter exists.
+- [x] **FR40 deep-scan option.** FIXED (2026-07-06). `profileRun.ts`'s fixed
+      `PROFILE_PROMPT` is now `buildProfilePrompt(depth: "recent" | "deep")`,
+      varying the scope wording sent to the skill (schema contract identical
+      either way). `ProfileCollector.tsx` adds a persisted Recent/Deep-scan
+      toggle next to the run button, with its own upfront token-cost line for
+      deep scan (a real, larger agent-side cost this app can't meter).
+      Explicit assumption (stated, not asked, per the /goal directive):
+      default is "recent" (cheaper), matching this app's other cost-conscious
+      defaults — operator-todo.md flags the *exact* default history window
+      and v1-inclusion as business calls, but "does the option exist, with a
+      sensible default" is the engineering gap that was actually open, and is
+      now closed. Verified: `npm run typecheck && npm run build && npm test`
+      (88/88) green.
 - [ ] **FR41 dismiss/curate friction patterns.** `frictionPoints` typed
       `unknown[]` in `src/engineTypes.ts`, never rendered in any profile
       component — no dismiss action can exist because nothing displays them.
