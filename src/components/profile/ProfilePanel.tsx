@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import {
   gapFillsFor,
@@ -220,16 +221,39 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
 
       <div className="profile-result-col">
         {merged ? (
-          <>
-            {vibeIndex && <VibeIndexCard index={vibeIndex} />}
-            <MergedView merged={merged} recommendations={recs} />
-            <ContinuityView
-              target={target}
-              onTarget={setTarget}
-              continuity={continuity}
-              gapFills={gapFills}
-            />
-          </>
+          // Staggered entrance (≤300ms total): results read as being presented
+          // in sequence rather than slammed in at once. Content is identical —
+          // motion only; snaps under reduced motion.
+          <motion.div
+            className="profile-result-stack"
+            initial="hidden"
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: 0.05 } } }}
+          >
+            {[
+              vibeIndex && <VibeIndexCard key="vibe" index={vibeIndex} />,
+              <MergedView key="merged" merged={merged} recommendations={recs} />,
+              <ContinuityView
+                key="continuity"
+                target={target}
+                onTarget={setTarget}
+                continuity={continuity}
+                gapFills={gapFills}
+              />,
+            ]
+              .filter(Boolean)
+              .map((child, i) => (
+                <motion.div
+                  key={i}
+                  variants={{
+                    hidden: { opacity: 0, y: 8 },
+                    show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "easeOut" } },
+                  }}
+                >
+                  {child}
+                </motion.div>
+              ))}
+          </motion.div>
         ) : mergeError ? (
           <PanelEmpty
             icon="alert"

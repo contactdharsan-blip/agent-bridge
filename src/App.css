@@ -718,7 +718,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  font-family: ui-monospace, Menlo, monospace;
   color: var(--color-text-secondary);
 }
 
@@ -734,7 +734,7 @@ body {
 .diff-body {
   margin: 0;
   padding: var(--space-2);
-  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: var(--text-xs);
   overflow-x: auto;
   /* A large hunk must never push its own Accept/Reject (the one blocking
@@ -894,7 +894,7 @@ body {
   font-weight: 600;
 }
 .banner-detail {
-  font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  font-family: ui-monospace, Menlo, monospace;
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
   white-space: pre-wrap;
@@ -969,7 +969,7 @@ body {
   border: none;
   border-bottom: 1px solid var(--glass-border);
   color: var(--color-text-primary);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, monospace;
   font-size: var(--text-base);
   padding: 0.2rem 0;
 }
@@ -1073,7 +1073,7 @@ body {
   color: var(--color-text-primary);
   padding: 0.35rem var(--space-2);
   font: inherit;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, monospace;
   font-size: var(--text-sm);
   min-width: 0;
 }
@@ -1088,7 +1088,7 @@ body {
 }
 .secret-fix {
   color: var(--theme-primary-light);
-  font-family: "JetBrains Mono", monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: var(--text-base);
 }
 
@@ -1104,7 +1104,7 @@ body {
   border-radius: var(--radius-input);
   color: var(--color-text-primary);
   padding: var(--space-2);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, monospace;
   font-size: var(--text-sm);
   resize: vertical;
   width: 100%;
@@ -1155,6 +1155,12 @@ body {
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+/* Reserve space near a typical projection's height so re-projection cycles
+   don't bounce the right column. Scoped here — GapFillItem's .code-preview
+   animates height:0→auto and must stay unclamped. */
+.preview-block .code-preview {
+  min-height: 8rem;
+}
 .preview-head {
   display: flex;
   align-items: center;
@@ -1170,7 +1176,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, monospace;
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
@@ -1180,7 +1186,7 @@ body {
   background: rgba(3, 7, 18, 0.55);
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);
-  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: var(--text-xs);
   line-height: 1.5;
   white-space: pre;
@@ -1211,7 +1217,7 @@ body {
   margin: var(--space-1) 0 0;
   padding-left: 0;
   list-style: none;
-  font-family: "JetBrains Mono", monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: var(--text-xs);
 }
 .drift-added {
@@ -1240,7 +1246,7 @@ body {
   flex-wrap: wrap; /* lets .binding-hint drop to its own full-width line */
 }
 .secret-ref {
-  font-family: "JetBrains Mono", monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: var(--text-sm);
   color: var(--theme-primary-light);
   min-width: 0;
@@ -1265,6 +1271,14 @@ body {
 }
 .skeleton-block {
   height: 6rem;
+}
+.skeleton-row {
+  height: 2.2rem;
+}
+.doctor-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 /* ---- Handoff panel ---------------------------------------------------------- */
@@ -1390,7 +1404,7 @@ body {
 }
 .carry-detail {
   color: var(--color-text-tertiary);
-  font-family: "JetBrains Mono", monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: var(--text-xs);
   min-width: 0;
   overflow-wrap: anywhere;
@@ -1510,7 +1524,7 @@ body {
 
 /* ---- Command palette + kbd -------------------------------------------------- */
 .kbd {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, monospace;
   font-size: var(--text-2xs);
   padding: 0.1rem 0.35rem;
   border-radius: var(--radius-sm);
@@ -1745,7 +1759,7 @@ body {
   gap: var(--space-2);
 }
 .doctor-command {
-  font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  font-family: ui-monospace, Menlo, monospace;
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
   overflow-wrap: anywhere;
@@ -1932,6 +1946,12 @@ body {
   gap: var(--space-3);
   min-width: 0;
 }
+.profile-result-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
 
 .local-first-note {
   font-size: var(--text-sm);
@@ -1975,7 +1995,7 @@ body {
   flex: 1;
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
-  font-family: "JetBrains Mono", monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 .merged-view,
@@ -2003,7 +2023,7 @@ body {
 }
 .vibe-confidence-badge {
   flex-shrink: 0;
-  font-family: "JetBrains Mono", monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .vibe-meta-row {
   display: flex;
@@ -2046,7 +2066,7 @@ body {
 .weight-meta {
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
-  font-family: "JetBrains Mono", monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 .merged-section {
@@ -2084,7 +2104,7 @@ body {
   width: 2.5rem;
   text-align: right;
   font-size: var(--text-xs);
-  font-family: "JetBrains Mono", monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
   color: var(--color-text-tertiary);
 }
 

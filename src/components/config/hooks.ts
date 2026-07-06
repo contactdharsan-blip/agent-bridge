@@ -17,7 +17,7 @@ const DEBOUNCE_MS = 250;
 
 export function useMcpPreview(target: Target, servers: McpServer[]): AsyncState<McpProjection> {
   const key = JSON.stringify(servers);
-  return useDebouncedAsync<McpProjection>(() => previewMcp(target, servers), [target, key]);
+  return useDebouncedAsync<McpProjection>(() => previewMcp(target, servers), [target, key], target);
 }
 
 export function useInstructionsPreview(
@@ -28,18 +28,32 @@ export function useInstructionsPreview(
   return useDebouncedAsync<InstructionArtifact>(
     () => previewInstructions(target, instructions),
     [target, key],
+    target,
   );
 }
 
-/** Run `run` after a debounce whenever `deps` change; latest call wins. */
-function useDebouncedAsync<T>(run: () => Promise<T>, deps: unknown[]): AsyncState<T> {
+/**
+ * Run `run` after a debounce whenever `deps` change; latest call wins.
+ * `resetKey`: when THIS changes (e.g. the projection target), stale data is
+ * dropped immediately — the header updates instantly, so keeping the previous
+ * target's content under it for debounce+IPC time silently mislabels it.
+ * Same-key re-runs (typing) keep the old content visible instead of flashing
+ * a skeleton per keystroke.
+ */
+function useDebouncedAsync<T>(run: () => Promise<T>, deps: unknown[], resetKey?: unknown): AsyncState<T> {
   const [state, setState] = useState<AsyncState<T>>({ data: null, loading: true, error: null });
   const runRef = useRef(run);
   runRef.current = run;
+  const prevReset = useRef(resetKey);
 
   useEffect(() => {
     let cancelled = false;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    if (prevReset.current !== resetKey) {
+      prevReset.current = resetKey;
+      setState({ data: null, loading: true, error: null });
+    } else {
+      setState((s) => ({ ...s, loading: true, error: null }));
+    }
     const timer = setTimeout(() => {
       runRef
         .current()

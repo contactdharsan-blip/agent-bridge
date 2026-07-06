@@ -320,29 +320,44 @@ is the most hand-typed surface in the app, so the app now asks the outgoing
 agent to draft it. Verify per batch: `npm run typecheck && npm run build &&
 npm test` + headless-Chromium visual pass.
 
-- [ ] **G1. Color picker (custom accent).** `theme.ts` grows pure derivation
-      (`hexToRgbTriplet`, darken/lighten, hue-shifted secondary →
+- [x] **G1. Color picker (custom accent).** `theme.ts` grows pure derivation
+      (`normalizeHex`/`hexToRgb`, darken/lighten mixes, hue-rotated secondary →
       `deriveAccent(hex): Accent`); accent persisted as preset-name-or-hex
       string (backwards compatible with stored "emerald"). `AccentSwitcher`
       keeps the 3 radio dots and adds a native `<input type="color">` custom
-      swatch. Unit tests on the derivation.
-- [ ] **G2. Agent-drafted snapshot.** `handoff/draftFromAgent.ts`: strict
+      swatch. Unit tests on the derivation (theme.test.ts). Real-browser
+      verified: pick sets `--theme-primary` #e11d48 + derived secondary
+      #e1751d, persists as hex, survives reload, ring marks the active swatch,
+      presets switch back.
+- [x] **G2. Agent-drafted snapshot.** `handoff/draftFromAgent.ts`: strict
       draft prompt + `parseSnapshotDraft` boundary parser (closed status enum,
       type-guarded fields, caps; null on no-JSON — same at-the-boundary
-      discipline as validate_profile). HandoffPanel gets "Draft from {source}"
-      → upfront token estimate + confirm → `promptCapture` → fills the SAME
-      editable fields (user still reviews; carry-diff ack untouched). Table
-      tests on the parser.
-- [ ] **G3. Upfront token estimates.** `state/tokenEstimate.ts` (~4 chars/token
-      heuristic, honestly labeled as a rough estimate — never a billed number).
-      Shown: PromptInput live chip, ProfileCollector pre-run line (plus the
-      honest note that in-session history reading costs more on the agent's
-      side), HandoffPanel draft confirm, CarryDiff brief-send line. Unit tests.
-- [ ] **G4. Agent logos.** `AgentLogo.tsx`: hand-authored inline-SVG marks
-      (CLAUDE.md rule: no icon library, no emoji) keyed by registry id
+      discipline as validate_profile; invalid entries dropped, never coerced).
+      HandoffPanel gets "Draft with {source}" → upfront token-cost confirm →
+      `promptCapture` → fills the SAME editable fields (user still reviews;
+      carry-diff ack untouched). Table tests on the parser
+      (draftFromAgent.test.ts). Live-session flow is Tauri-gated → operator
+      click-through via `npm run tauri dev`.
+- [x] **G3. Upfront token estimates.** `state/tokenEstimate.ts` (~4 chars/token
+      heuristic; every surface shares the same TOKEN_ESTIMATE_NOTE framing —
+      an estimate, never a billed number). Shown: PromptInput live line,
+      ProfileCollector pre-run line (plus the honest note that in-session
+      history reading costs more on the agent's side), HandoffPanel draft
+      confirm, CarryDiff brief-send line. Unit tests (tokenEstimate.test.ts).
+- [x] **G4. Agent logos.** `AgentLogo.tsx`: hand-authored inline-SVG marks
+      (CLAUDE.md rule: no icon library, no emoji; original geometry evoking
+      each agent, not vendor trademark copies) keyed by registry id
       (claude/codex/cursor) with a generic fallback — display metadata like
       displayName, not a behavior branch (M2 win condition holds). Used in
-      AgentPicker status chips + assistant bubble attribution.
+      AgentPicker status chips, assistant bubble attribution, and the Handoff
+      "Carrying from" line.
+
+Landed in commit `1752625` (B6) — built in this session concurrently with the
+v1.5 B-batch session on the same working tree; that session's B6 commit swept
+in and gate-verified both work streams together (typecheck + build + 66/66
+tests green; its message documents the co-landing). Visual pass re-run after
+B6 against the live dev server (pid ownership + served-source freshness
+checked per lessons 2026-07-06).
 
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.

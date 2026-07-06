@@ -28,11 +28,13 @@ export function McpPreview({
         <span className="preview-file">
           <Icon name="config" /> {TARGET_FILE[target]}
         </span>
-        {data && (
-          <span className={`badge ${data.warnings.some((w) => w.code === "cursorToolCeiling") ? "badge-warning" : "badge-neutral"}`}>
-            {data.toolCount} tools
-          </span>
-        )}
+        {/* Placeholder while projecting — the header row otherwise shifts
+            every time the badge pops in after a re-projection. */}
+        <span
+          className={`badge ${data?.warnings.some((w) => w.code === "cursorToolCeiling") ? "badge-warning" : "badge-neutral"}`}
+        >
+          {data ? `${data.toolCount} tools` : "…"}
+        </span>
       </header>
 
       {loading && !data && <div className="skeleton skeleton-block" aria-label="projecting" />}

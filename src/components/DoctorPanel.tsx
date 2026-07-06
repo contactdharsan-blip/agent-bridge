@@ -160,9 +160,25 @@ export function DoctorPanel({ open, onClose }: { open: boolean; onClose: () => v
                 </Dialog.Description>
 
                 {state.phase === "loading" && (
-                  <p className="callout">
-                    <Icon name="refresh" /> Running checks…
-                  </p>
+                  <>
+                    <p className="callout">
+                      <motion.span
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
+                        style={{ display: "inline-flex" }}
+                      >
+                        <Icon name="refresh" />
+                      </motion.span>{" "}
+                      Running checks…
+                    </p>
+                    {/* Skeleton rows shaped like the report reserve its height,
+                        so the modal doesn't snap taller when results land. */}
+                    <div className="doctor-skeleton" aria-hidden="true">
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <div key={i} className="skeleton skeleton-row" />
+                      ))}
+                    </div>
+                  </>
                 )}
                 {state.phase === "error" && (
                   <p className="callout callout-error">
