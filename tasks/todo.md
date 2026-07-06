@@ -301,12 +301,50 @@ set, root `MotionConfig reducedMotion="user"`, verify per batch with
       --transition-spring 500ms/1.56-overshoot → 300ms/1.3; height-auto reveals on
       NON-GATE expanders only; scaleX ceiling meter (state color never animates);
       message entrance y:6/0.15s; never animate token deltas or gate mount/unmount.
-- [ ] **A. Product audit** — parallel read-only agents (motion gaps, flow
-      friction/thought-out feel) + a rendered-screenshot pass.
-- [ ] **B. Rework batches** — implement adopted libs + audit fixes, one
-      reviewable batch per commit, full gate + visual pass each.
-- [ ] **V. Verify** — adversarial self-review of the loop's own diffs
-      (lessons 2026-07-02), full gate, docs updated.
+- [x] **A. Product audit** — 2 read-only agents (32 motion/smoothness findings
+      incl. 3 root causes: card-entry `both` fill overriding framer exits +
+      replaying per tab visit; the tab-switch wrapper breaking the flex chain
+      so .thread never scrolled internally; active tab/seg growing 1px on
+      select — plus 28 flow findings incl. 5 P1: handoff draft destroyed on
+      tab switch, cwd/agent never persisted, unreachable agentsMd entity,
+      Esc-in-Doctor cancelling live turns, 2 silent stream failure paths) +
+      my own rendered-screenshot pass (raw invoke TypeErrors leaking into UI;
+      BOTH "centered" modals actually rendering 25vw right of center — framer
+      inline transform / keyframe `both` fill kill translateX(-50%) centering).
+- [x] **B. Rework batches** — B1..B7, one commit each, full gate per batch
+      (`249f338`…`0600b35`):
+      B1 motion foundation (shared tokens in state/motion.ts, layoutId tab
+      pill, asymmetric fade-through, box-model modal centering fix, spring
+      token tighten); B2 five P1 flow fixes (handoff draft persistence, cwd/
+      agent persistence, Esc guard, prompt/resolve failure paths, AGENTS.md
+      editor); B3 thread UX (use-stick-to-bottom — the ONE adopted dep — jump
+      chip, turn-boundary live region, mount-only bubble entrances, agent-
+      attributed bubbles, diff-hunk 40vh cap, honest paused reasons); B4
+      feedback (toast pause-on-hover/cap/popLayout, tauriInvoke no-backend
+      mapping, error-kind write failures, pending states for switch/validate/
+      import, animated banner + header notes + list reflow); B5 gate grammar
+      (DriftWrite auto-compare + drifted→explicit-ack — strictly stronger,
+      verdict above actions; InstructionsPreview stale-projection gate reset
+      [new bug found while there] + scroll-to-gate; import wizard no longer
+      clobbers canonical instructions; disconnect keeps the transcript); B6
+      consistency (ranked palette + disabled-with-reason commands + new
+      commands, agentLabel everywhere, secret-binding remediation, profile
+      import validate-all-then-report, seed honesty + auto recentEdits,
+      configTarget persistence); B7 loading (stale-preview reset on target
+      switch, reserved preview/badge/doctor space, result stagger, mono font
+      honesty). Concurrent parallel-session additions (AgentLogo marks,
+      agent-drafted snapshots, token estimates) gate-verified + landed in B6.
+- [x] **V. Verify** — headless-Chromium passes per batch (palette center
+      x=720, pill tracking, tour targets, palette ranking, blocked reasons,
+      friendly engine-unreachable banner) + full-tab screenshot pass + tour
+      smoke (welcome step targetless by design, Enter advances to a real
+      highlight); adversarial self-review agent run over 343b083..HEAD
+      (findings + fixes recorded in the commit that follows it); final gate
+      typecheck + build + 66/66 vitest. Two new lessons recorded (dual-stack
+      stale dev server; transform-based centering vs framer/keyframe fills).
+      NOT exercisable in the browser harness (no Tauri IPC): live stream
+      pin/jump-chip behavior, real drift write flow, handoff switch —
+      operator-verifiable via `npm run tauri dev`.
 
 ## v1.6 — goal batch: color picker, agent-drafted handoff, token honesty, agent logos (2026-07-06)
 
