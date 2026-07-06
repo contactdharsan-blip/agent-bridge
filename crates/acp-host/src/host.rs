@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
-    InitializeRequest, RequestPermissionOutcome, RequestPermissionRequest,
+    CancelNotification, InitializeRequest, RequestPermissionOutcome, RequestPermissionRequest,
     RequestPermissionResponse, SelectedPermissionOutcome, SessionNotification,
 };
 use agent_client_protocol::schema::ProtocolVersion;
@@ -215,8 +215,20 @@ async fn run_connection(
         .on_receive_request(
             async move |req: RequestPermissionRequest,
                         responder: Responder<RequestPermissionResponse>,
-                        _cx| {
-                handle_permission(req, responder, events_perm.clone(), pending_perm.clone()).await
+                        cx: ConnectionTo<Agent>| {
+                // MUST spawn, not await inline: this handler runs inside the
+                // dispatch loop, which blocks ALL further incoming messages
+                // until it returns (see agent_client_protocol's `ordering`
+                // docs). Awaiting the user's real accept/reject decision here
+                // directly would freeze the whole connection — including the
+                // eventual response to this session's own outstanding prompt
+                // request — for as long as the edit sits unresolved. That
+                // freeze is exactly what made a `cancel()` sent while an edit
+                // is pending invisible: the agent's `Cancelled` response had
+                // nowhere to be delivered.
+                let events = events_perm.clone();
+                let pending = pending_perm.clone();
+                cx.spawn(async move { handle_permission(req, responder, events, pending).await })
             },
             agent_client_protocol::on_receive_request!(),
         )
@@ -242,21 +254,30 @@ async fn run_connection(
 
             // --- Command loop: one prompt turn at a time ---
             let mut cmd_rx = cmd_rx;
-            while let Some(cmd) = cmd_rx.recv().await {
+            'outer: while let Some(cmd) = cmd_rx.recv().await {
                 match cmd {
                     HostCommand::SendPrompt(text) => {
-                        if let Err(e) = run_turn(&mut session, &sid, text, &events_conn).await {
-                            let _ = events_conn.send(AgentEvent::Error {
-                                session: Some(sid.clone()),
-                                kind: ErrorKind::Protocol,
-                                message: e.to_string(),
-                            });
+                        match run_turn(&mut session, &sid, text, &events_conn, &mut cmd_rx, &cx)
+                            .await
+                        {
+                            Ok(TurnOutcome::Stopped) => {}
+                            Ok(TurnOutcome::ShuttingDown) => break 'outer,
+                            Err(e) => {
+                                let _ = events_conn.send(AgentEvent::Error {
+                                    session: Some(sid.clone()),
+                                    kind: ErrorKind::Protocol,
+                                    message: e.to_string(),
+                                });
+                            }
                         }
                     }
-                    // Cancellation is plumbed end-to-end but its agent-facing
-                    // notification is implemented in the Step 5 hardening pass.
+                    // No turn is in flight between prompts — nothing for the
+                    // agent to cancel, so this is correctly a no-op here (a
+                    // Cancel arriving *during* a turn is handled inside
+                    // `run_turn`'s select loop instead, so it's seen immediately
+                    // rather than only after the turn ends on its own).
                     HostCommand::Cancel => {}
-                    HostCommand::Shutdown => break,
+                    HostCommand::Shutdown => break 'outer,
                 }
             }
             Ok(())
@@ -273,41 +294,84 @@ async fn run_connection(
     }
 }
 
+/// How a prompt turn's driving loop ended, so the caller knows whether to keep
+/// serving the outer command loop or tear the whole connection down.
+enum TurnOutcome {
+    /// The turn produced a `StopReason` (normally or via cancellation).
+    Stopped,
+    /// A `Shutdown` command (or a closed command channel) arrived mid-turn.
+    ShuttingDown,
+}
+
 /// Drive a single prompt turn: send the prompt, stream updates, end on stop.
+///
+/// Concurrently polls the command channel so a `Cancel` sent *during* the turn
+/// is seen immediately rather than only after `read_update` next yields on its
+/// own — otherwise cancellation is invisible until the agent finishes the turn
+/// unprompted, defeating the point of cancelling.
 async fn run_turn(
     session: &mut agent_client_protocol::ActiveSession<'static, agent_client_protocol::Agent>,
     sid: &SessionId,
     text: String,
     events: &mpsc::UnboundedSender<AgentEvent>,
-) -> Result<(), agent_client_protocol::Error> {
+    cmd_rx: &mut mpsc::UnboundedReceiver<HostCommand>,
+    cx: &ConnectionTo<Agent>,
+) -> Result<TurnOutcome, agent_client_protocol::Error> {
     session.send_prompt(text)?;
     loop {
-        match session.read_update().await? {
-            SessionMessage::SessionMessage(dispatch) => {
-                let sid = sid.clone();
-                let events = events.clone();
-                MatchDispatch::new(dispatch)
-                    .if_notification(async move |notif: SessionNotification| {
-                        if let Some(ev) = translate::session_update_to_event(&sid, &notif.update) {
-                            let _ = events.send(ev);
-                        }
-                        Ok::<(), agent_client_protocol::Error>(())
-                    })
-                    .await
-                    .otherwise_ignore()?;
+        tokio::select! {
+            update = session.read_update() => {
+                match update? {
+                    SessionMessage::SessionMessage(dispatch) => {
+                        let sid = sid.clone();
+                        let events = events.clone();
+                        MatchDispatch::new(dispatch)
+                            .if_notification(async move |notif: SessionNotification| {
+                                if let Some(ev) = translate::session_update_to_event(&sid, &notif.update) {
+                                    let _ = events.send(ev);
+                                }
+                                Ok::<(), agent_client_protocol::Error>(())
+                            })
+                            .await
+                            .otherwise_ignore()?;
+                    }
+                    SessionMessage::StopReason(stop) => {
+                        let _ = events.send(AgentEvent::TurnEnded {
+                            session: sid.clone(),
+                            stop_reason: translate::stop_reason(&stop),
+                        });
+                        return Ok(TurnOutcome::Stopped);
+                    }
+                    // `SessionMessage` is `#[non_exhaustive]`; ignore future variants.
+                    _ => {}
+                }
             }
-            SessionMessage::StopReason(stop) => {
-                let _ = events.send(AgentEvent::TurnEnded {
-                    session: sid.clone(),
-                    stop_reason: translate::stop_reason(&stop),
-                });
-                break;
+            cmd = cmd_rx.recv() => {
+                match cmd {
+                    Some(HostCommand::Cancel) => {
+                        // Best-effort and cooperative per ACP: the agent may stop
+                        // promptly (the common case — surfaces as a `StopReason`
+                        // via `read_update` above, still being polled), finish
+                        // normally, or ignore this entirely. Nothing else to do
+                        // here; keep looping either way.
+                        let _ = cx.send_notification(CancelNotification::new(sid.0.clone()));
+                    }
+                    Some(HostCommand::SendPrompt(_)) => {
+                        // ACP allows one outstanding prompt per session; a second
+                        // one while this turn is still active can't be started
+                        // silently (dropping it) or silently override it, so
+                        // surface the conflict honestly instead.
+                        let _ = events.send(AgentEvent::Error {
+                            session: Some(sid.clone()),
+                            kind: ErrorKind::Protocol,
+                            message: "a prompt is already in flight for this session".into(),
+                        });
+                    }
+                    Some(HostCommand::Shutdown) | None => return Ok(TurnOutcome::ShuttingDown),
+                }
             }
-            // `SessionMessage` is `#[non_exhaustive]`; ignore future variants.
-            _ => {}
         }
     }
-    Ok(())
 }
 
 /// Handle one `session/request_permission`: surface the edit, await the user's

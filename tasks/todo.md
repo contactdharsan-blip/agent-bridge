@@ -405,3 +405,98 @@ checked per lessons 2026-07-06).
 ## Notes / decisions made autonomously
 - Canonical store: SQLite + files was an open question → starting **files/in-memory model only** (no DB yet); the model is DB-agnostic so SQLite can wrap it later. Pure-function engine doesn't need persistence to be correct/tested.
 - Secrets: canonical `ConfigValue::Secret` holds only a *reference* (env var / keychain), never a literal — strongest possible "no inlined token" guarantee (the literal never enters the model).
+
+## v1.7 — stub/gap audit (2026-07-06)
+
+3-agent parallel audit (repo-wide stub grep + core-PRD FR24-50 vs code + UI-PRD
+UI-FR1-34 vs code), read-only, no fixes applied yet. Full findings below; ranked
+worst-first.
+
+### 🔴 P0 — real bug, not a doc gap
+- [x] **`cancel()` is a no-op in the real ACP host.** FIXED (2026-07-06). Test-first
+      ritual: added `cancel_stops_an_in_flight_turn_via_real_notification` to
+      `offline_transport.rs` (fake-agent races the pending permission decision
+      against a `session/cancel` notification), watched it fail, then fixed
+      `host.rs`: `run_turn` now `tokio::select!`s between `session.read_update()`
+      and the command channel, so a `Cancel` mid-turn sends a real ACP
+      `CancelNotification` immediately instead of waiting for the turn to end on
+      its own. Fixing this surfaced a SECOND, deeper pre-existing bug the test
+      first exposed: the client's `RequestPermissionRequest` handler awaited
+      `handle_permission` inline inside the SDK's dispatch loop, which (per
+      `agent_client_protocol`'s own `ordering` docs) blocks ALL further incoming
+      messages — including the agent's eventual `Cancelled` response — until the
+      handler returns. Since a pending edit awaits a real user click (seconds to
+      minutes), any cancel sent while an edit was pending was structurally
+      undeliverable no matter what `host.rs`'s command loop did. Fixed by
+      `cx.spawn`-ing `handle_permission` instead of awaiting it inline (mirrors
+      the pattern `fake_agent.rs`'s own agent-side handler already used).
+      Frontend: `useAgentStream.ts` no longer optimistically sets
+      `turnActive=false` in `cancel()` — the real `TurnEnded` does it. Added a
+      new `turnDisownedRef` (NOT a reuse of `epochRef` — that value is baked
+      into a session's event channel at connect-time forever, so bumping it on
+      cancel would also silently drop every later turn's events in the *same*
+      still-open session, a real regression this fix avoids) that suppresses
+      stray textDelta/thought after cancel, auto-rejects (rather than silently
+      dropping) any editHunk that arrives after cancel to avoid hanging the
+      agent's dispatch loop waiting for a decision, and rejects an in-flight
+      `promptCapture` instead of resolving it with a truncated buffer. Verified:
+      `cargo test --workspace` + `cargo clippy --workspace --all-targets` +
+      `npm run typecheck && npm run build && npm test` (66/66) all green.
+
+### v1-committed PRD FRs never built
+- [ ] **FR25 auto-reproject on change.** Zero file-watcher code anywhere
+      (`notify`/`watcher`/`watch(` greps all empty). Canonical edits only take
+      effect on a manual revisit-and-click-Apply.
+- [ ] **FR40 deep-scan option.** `src/components/profile/profileRun.ts` has one
+      fixed `PROFILE_PROMPT`; no depth/window parameter exists.
+- [ ] **FR41 dismiss/curate friction patterns.** `frictionPoints` typed
+      `unknown[]` in `src/engineTypes.ts`, never rendered in any profile
+      component — no dismiss action can exist because nothing displays them.
+- [ ] **FR50 signed cross-platform packaging.** `.github/workflows/desktop-build.yml`
+      states outright "unsigned dev builds"; no signing/notarize block in
+      `tauri.conf.json` (tracked already in `operator-todo.md`).
+- [ ] **FR31 permission presets** — 2 of 3 named tiers shipped (`default`/
+      `acceptEdits`, no `bypass`) — deliberate, documented (frozen `AgentEvent`
+      has only one permission-shaped variant), just noting it's a PRD-vs-build gap.
+- [ ] **FR47 auth status panel** — status itself is real, but no "one-click
+      open-native-login" action exists anywhere (`open.*login` greps empty) —
+      PRD text promises it, UI only shows a tooltip pointing at the CLI.
+- [ ] **FR48 onboarding wizard** — doesn't itself detect installed agents (that
+      check lives only in the separate, unlinked Doctor panel); no dedicated
+      secret-binding step.
+
+### Stub wearing a real UI
+- [ ] **Gap-filling "marketplace" index is 2 hardcoded entries**
+      (`crates/profile/src/gapfill.rs` `capability_index()`), one of which
+      points at the product's own GitHub repo. Not a real third-party index.
+      The honesty mechanism around it (source-before-install, equivalence tag,
+      no auto-install) is genuinely implemented — there's just nothing to browse.
+      Expected to stay this way until FR44 (v1.1, marketplace index) is scoped.
+
+### Undocumented UI gaps (found by the UI-FR pass, not previously in todo.md)
+- [ ] **UI-FR06 — non-diff permission requests silently hang.** Only diff-shaped
+      ACP permission requests reach the frontend at all (`crates/acp-host/src/translate.rs:62-75`
+      `edit_from_permission` returns `None` for anything else, e.g. a bash-exec
+      approval) — `host.rs:313-346`'s `handle_permission` then has nothing to
+      surface, so the request is never resolved, server-side, forever.
+- [ ] **UI-FR08 — carry-diff gate has a bypass.** The header `AgentPicker`'s
+      Disconnect+reconnect changes the active agent directly, skipping the
+      Handoff panel's carry-diff entirely — a second, ungated switch path
+      alongside the honest one (`src/components/handoff/CarryDiff.tsx`'s gate
+      only covers the Handoff-panel-initiated switch).
+- [ ] **`OnboardingTour.tsx` mislabeled + contradicts its own spec.** PRD reuses
+      "UI-FR28" for two different requirements (§6 linear wizard vs §11 addendum
+      inline checklist); the Tour's own comments claim UI-FR28 but it satisfies
+      neither — it's a blocking Radix modal (`onInteractOutside` → `preventDefault`),
+      contradicting the addendum's "never a modal wall," and never calls the
+      wizard's real commands (no `preview_mcp`/`audit_secret_bindings`/
+      `start_session`/`validate_profile`) — it only narrates + spotlights DOM.
+      `OnboardingCard.tsx` is the one that actually matches the addendum.
+
+### Confirmed non-issues (already tracked/deferred correctly — no action)
+- FR29 canonical-store export/backup: unbuilt, but that's v1.1 as tagged; not
+  to be confused with UI-FR33 profile export (real, already shipped).
+- FR44 marketplace index breadth: v1.1, correctly unbuilt (see stub note above).
+- Everything else in the repo-wide grep (TODO/FIXME/todo!()/mock data/empty
+  catches/`as any`) came back clean — this codebase is unusually disciplined
+  outside the one host.rs finding above.

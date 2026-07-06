@@ -151,3 +151,94 @@ async fn reject_leaves_file_unwritten() {
     assert!(!outfile.exists(), "rejected edit must not write the file");
     host.shutdown().await.unwrap();
 }
+
+/// Proves the P0 fix: `cancel()` must actually deliver ACP `session/cancel` to
+/// the subprocess *while a turn is in flight*, not just accept the call and do
+/// nothing (the old `HostCommand::Cancel => {}` no-op). The fake agent races
+/// the client's still-pending permission decision against the cancel
+/// notification — resolving via `StopReason::Cancelled` proves the
+/// notification actually reached it, and proves it was seen mid-turn (not
+/// only after the turn would have ended on its own, since nothing here ever
+/// resolves the permission request).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_stops_an_in_flight_turn_via_real_notification() {
+    let dir = tempfile::tempdir().unwrap();
+    let outfile = dir.path().join("hello.txt");
+    let debug_log = dir.path().join("fake_agent.log");
+
+    let (tx, mut rx) = mpsc::unbounded_channel::<AgentEvent>();
+    let host = AcpHostHandle::new(tx);
+
+    let cfg = SessionConfig {
+        cwd: dir.path().to_path_buf(),
+        adapter: AdapterSpec {
+            command: FAKE_AGENT.to_string(),
+            args: vec![],
+            env: vec![
+                (
+                    "FAKE_AGENT_OUTFILE".to_string(),
+                    outfile.to_string_lossy().into_owned(),
+                ),
+                ("FAKE_AGENT_TEXT".to_string(), "SHOULD_NOT_EXIST".to_string()),
+                (
+                    "FAKE_AGENT_DEBUG_LOG".to_string(),
+                    debug_log.to_string_lossy().into_owned(),
+                ),
+            ],
+        },
+    };
+
+    let session = timeout(STEP_TIMEOUT, host.start_session(cfg))
+        .await
+        .expect("start_session timed out")
+        .expect("start_session failed");
+    host.send_prompt(&session, "create the file".into())
+        .await
+        .unwrap();
+
+    // Wait for the edit hunk — proof the turn is genuinely mid-flight (the
+    // agent is blocked awaiting a permission decision the test never sends).
+    loop {
+        let ev = timeout(STEP_TIMEOUT, rx.recv())
+            .await
+            .expect("timed out waiting for the edit hunk")
+            .expect("event channel closed");
+        match ev {
+            AgentEvent::EditHunk { .. } => break,
+            AgentEvent::Error { kind, message, .. } => {
+                panic!("unexpected error [{kind:?}]: {message}")
+            }
+            _ => {}
+        }
+    }
+
+    host.cancel(&session).await.unwrap();
+
+    let stop_reason = loop {
+        let ev = match timeout(STEP_TIMEOUT, rx.recv()).await {
+            Ok(ev) => ev.expect("event channel closed"),
+            Err(_) => {
+                let log = std::fs::read_to_string(&debug_log).unwrap_or_default();
+                panic!(
+                    "cancel did not stop the turn in time — session/cancel was not delivered.\nfake_agent log:\n{log}"
+                );
+            }
+        };
+        match ev {
+            AgentEvent::TurnEnded { stop_reason, .. } => break stop_reason,
+            AgentEvent::Error { kind, message, .. } => {
+                panic!("unexpected error [{kind:?}]: {message}")
+            }
+            _ => {}
+        }
+    };
+
+    assert_eq!(
+        stop_reason,
+        acp_host::StopReason::Cancelled,
+        "the turn must end via the agent's own Cancelled response to session/cancel"
+    );
+    assert!(!outfile.exists(), "a cancelled turn must never apply its pending edit");
+
+    host.shutdown().await.unwrap();
+}

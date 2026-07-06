@@ -69,6 +69,15 @@ export function useAgentStream(): AgentStream {
   // bleeding into the new thread stamped with the new agent's name, unlocking
   // the composer mid-turn, or resurfacing a dead session's edit request.
   const epochRef = useRef(0);
+  // Turn-disowned flag: set by cancel(), cleared by the real TurnEnded (or a
+  // fresh connect/disconnect/switch). ACP cancellation is cooperative — the
+  // agent may keep streaming for a while (or ignore cancellation entirely)
+  // after we ask it to stop. Reusing `epochRef` for this would be wrong: its
+  // value is captured once per connect() and baked into that session's event
+  // channel forever, so bumping it on cancel would also silently drop every
+  // later turn's events in the SAME still-open session. This flag is scoped
+  // to "is the CURRENT turn disowned", not "is this the current session".
+  const turnDisownedRef = useRef(false);
 
   const flush = useCallback(() => {
     rafRef.current = null;
@@ -93,15 +102,28 @@ export function useAgentStream(): AgentStream {
     (event: AgentEvent) => {
       switch (event.type) {
         case "textDelta":
+          if (turnDisownedRef.current) break;
           answerBuf.current += event.text;
           if (captureRef.current) captureRef.current.buf += event.text;
           schedule();
           break;
         case "thought":
+          if (turnDisownedRef.current) break;
           thoughtBuf.current += event.text;
           schedule();
           break;
         case "editHunk": {
+          if (turnDisownedRef.current) {
+            // A cooperative cancel doesn't guarantee the adapter stops
+            // immediately — it may still ask for a permission before
+            // honoring session/cancel. Auto-reject rather than resurfacing a
+            // diff for a turn the user already disowned, and rather than
+            // silently leaving the agent's request unresolved (which would
+            // hang its dispatch loop waiting for a decision that never comes).
+            ipc.resolvePermission(event.requestId, "reject").catch(() => {});
+            pushSystem(setMessages, `Auto-rejected an edit to ${event.path} that arrived after cancel`);
+            break;
+          }
           // Per-project preset (FR31): "acceptEdits" auto-resolves instead of
           // surfacing the diff, but this is never silent — a system message
           // always records what happened, same as every other honesty
@@ -125,6 +147,7 @@ export function useAgentStream(): AgentStream {
           break;
         }
         case "turnEnded": {
+          turnDisownedRef.current = false;
           flush();
           setTurnActive(false);
           const note = stopNote(event.stopReason);
@@ -168,6 +191,7 @@ export function useAgentStream(): AgentStream {
       setError(null);
       cwdRef.current = cwd;
       agentRef.current = id;
+      turnDisownedRef.current = false;
       const epoch = ++epochRef.current;
       const sid = await ipc.startSession(id, cwd, gatedOnEvent(epoch));
       setSession(sid);
@@ -248,10 +272,27 @@ export function useAgentStream(): AgentStream {
 
   const cancel = useCallback(async () => {
     if (!session) return;
-    await ipc.cancel(session);
-    // The adapter should emit turnEnded(cancelled); settle optimistically so the
-    // composer re-enables even if the adapter is slow to acknowledge.
-    setTurnActive(false);
+    // Disown the turn BEFORE the IPC call so nothing racing in from the
+    // still-open channel between now and the real TurnEnded gets appended
+    // (see `turnDisownedRef` above) — and so a capture in flight (the Profile
+    // panel's promptCapture) doesn't get resolved with a truncated buffer.
+    turnDisownedRef.current = true;
+    if (captureRef.current) {
+      captureRef.current.reject("Cancelled");
+      captureRef.current = null;
+    }
+    try {
+      await ipc.cancel(session);
+    } catch (e) {
+      // The cancel call itself failed to reach the backend — don't keep
+      // suppressing output for a turn we never actually asked to stop.
+      turnDisownedRef.current = false;
+      pushSystem(setMessages, `Couldn't cancel: ${String(e)}`);
+      return;
+    }
+    // Don't optimistically flip turnActive: the backend now actually delivers
+    // `session/cancel` to the agent, so the real TurnEnded (Cancelled, or
+    // whatever the agent honors) is what settles it honestly instead.
   }, [session]);
 
   const disconnect = useCallback(() => {
@@ -260,6 +301,7 @@ export function useAgentStream(): AgentStream {
     // The epoch bump gates out anything the old channel still delivers — the
     // backend keeps the old host alive until the next connect replaces it.
     epochRef.current += 1;
+    turnDisownedRef.current = false;
     if (session) void ipc.cancel(session).catch(() => {});
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
@@ -305,6 +347,7 @@ export function useAgentStream(): AgentStream {
       thoughtBuf.current = "";
       captureRef.current?.reject("Session ended by handoff switch");
       captureRef.current = null;
+      turnDisownedRef.current = false;
       cwdRef.current = cwd;
       agentRef.current = targetAgent;
       const epoch = ++epochRef.current;
