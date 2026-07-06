@@ -4,6 +4,7 @@ mod commands;
 mod doctor;
 mod engines;
 mod native_config;
+mod terminal;
 
 use commands::AppState;
 
@@ -35,6 +36,8 @@ pub fn run() {
             native_config::write_native_file,
             // Local diagnostics (FR32).
             doctor::run_doctor,
+            // One-click open-native-login (FR47).
+            terminal::open_agent_login_terminal,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Agent Bridge");

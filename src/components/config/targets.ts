@@ -32,3 +32,20 @@ const AGENT_LABEL: Record<string, string> = {
 export function agentLabel(id: string): string {
   return AGENT_LABEL[id] ?? id;
 }
+
+// The bare CLI each agent's own native login flow runs through interactively
+// — NOT the npx-wrapped ACP adapter package (crates/acp-host/src/registry.rs's
+// `adapter_for`, a machine-to-machine transport detail the user never types
+// themselves). FR47's "open native login" surfaces this CLI in a real
+// terminal rather than guessing/auto-running a specific login subcommand —
+// each agent's exact invocation differs and isn't guaranteed stable, so the
+// honest move is "here's the tool, sign in however it asks," not a fabricated
+// one-liner.
+const AGENT_CLI: Record<string, string> = {
+  claude: "claude",
+  codex: "codex",
+  cursor: "cursor-agent",
+};
+export function agentCli(id: string): string | undefined {
+  return AGENT_CLI[id];
+}

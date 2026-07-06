@@ -72,3 +72,14 @@ export function cancel(session: SessionId): Promise<void> {
 export function runDoctor(): Promise<DoctorReport> {
   return tauriInvoke<DoctorReport>("run_doctor");
 }
+
+/**
+ * One-click open-native-login (FR47/FR23): open a real terminal in `cwd` so
+ * the user can run their agent's own CLI there and complete whatever
+ * OAuth/browser step it needs. Never runs the login itself — this app
+ * doesn't know each agent's exact login invocation reliably enough to trust
+ * auto-executing it (plan §5: "surface each agent's native login flow").
+ */
+export function openAgentLoginTerminal(cwd: string): Promise<void> {
+  return tauriInvoke("open_agent_login_terminal", { cwd });
+}

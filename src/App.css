@@ -334,6 +334,29 @@ body {
   font-weight: 700;
 }
 
+/* One-click open-native-login (FR47) — a tiny inline action inside the
+ * needsLogin badge itself, not a separate button that would duplicate the
+ * icon+label pill for every agent chip in the status strip. */
+.badge-action {
+  margin-left: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.badge-action:hover:not(:disabled) {
+  opacity: 1;
+}
+.badge-action:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 /* ---- Tab bar (glass segmented control, DESIGN §7.4) ------------------------- */
 .tabbar {
   display: inline-flex;

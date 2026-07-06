@@ -88,7 +88,7 @@ export function AgentPicker({
           <span key={a.id} className="agent-chip">
             <AgentLogo id={a.id} />
             <span className="agent-chip-name">{a.displayName}</span>
-            <AuthBadge status={a.authStatus} env={a.authEnv} />
+            <AuthBadge status={a.authStatus} env={a.authEnv} agentId={a.id} cwd={cwd} />
           </span>
         ))}
         <button

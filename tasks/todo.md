@@ -486,9 +486,24 @@ worst-first.
 - [ ] **FR31 permission presets** — 2 of 3 named tiers shipped (`default`/
       `acceptEdits`, no `bypass`) — deliberate, documented (frozen `AgentEvent`
       has only one permission-shaped variant), just noting it's a PRD-vs-build gap.
-- [ ] **FR47 auth status panel** — status itself is real, but no "one-click
-      open-native-login" action exists anywhere (`open.*login` greps empty) —
-      PRD text promises it, UI only shows a tooltip pointing at the CLI.
+- [x] **FR47 auth status panel** — FIXED (2026-07-06). New `src-tauri/src/
+      terminal.rs` (`open_agent_login_terminal`, 🔴-adjacent subprocess-spawn
+      surface, execution-verified on macOS during the build then the
+      throwaway test removed — same discipline as `doctor.rs`'s keychain
+      probe) opens a real OS terminal in the session's `cwd`. Deliberately
+      does NOT auto-run or guess a specific login subcommand per agent (plan
+      §5: "surface each agent's native login flow," don't own it) — it opens
+      the terminal and names the bare CLI (`claude`/`codex`/`cursor-agent`,
+      new `agentCli()` in `config/targets.ts`) so the user completes whatever
+      OAuth/browser step it needs themselves. `AuthBadge.tsx` gets a "Sign in"
+      action, shown ONLY for `needsLogin` (a live connect attempt actually
+      failed for want of auth) — never for `byoLogin`, which is the normal
+      working state for a subscription/OAuth user and would be misleading to
+      prompt. Verified: `cargo test --workspace` + `cargo clippy --workspace
+      --all-targets` + `npm run typecheck && npm run build && npm test`
+      (84/84) all green; macOS path confirmed for real (Terminal.app process
+      observed launching), Windows/Linux paths are best-effort/unverified in
+      this sandbox.
 - [ ] **FR48 onboarding wizard** — doesn't itself detect installed agents (that
       check lives only in the separate, unlinked Doctor panel); no dedicated
       secret-binding step.
