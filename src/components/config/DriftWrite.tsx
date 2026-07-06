@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { checkDrift, readNativeFile, writeNativeFile } from "../../engines";
 import type { DriftStatus, McpServer, Target } from "../../engineTypes";
+import { getFingerprint, setFingerprint } from "../../state/nativeFileFingerprint";
 import { useToast } from "../../state/toast";
 import { Icon } from "../Icon";
 import { TARGET_FILE } from "./targets";
@@ -16,6 +17,15 @@ import { TARGET_FILE } from "./targets";
 // "Apply" writes the approved config straight to disk when `cwd` is set,
 // falling back to the clipboard-copy flow only if that write fails (or there's
 // no `cwd` to write into).
+//
+// FR25 (auto-reproject on change): once the user has made at least one real
+// canonical edit since mount, a "missing" verdict — or a "drifted" one where
+// the on-disk bytes still match the fingerprint we last confirmed as our own
+// write — auto-regenerates without waiting for a click. Anything else (no
+// fingerprint on record, bytes that don't match it, unreadable, or a manual
+// paste) is a possible hand-edit and still requires the manual gated re-ack
+// above — the drift guard (FR11) is never weakened, only skipped when it's
+// provably safe to.
 
 type ReadState =
   | { phase: "idle" }
@@ -76,14 +86,24 @@ export function DriftWrite({
   target,
   servers,
   contents,
+  projecting,
   cwd,
 }: {
   target: Target;
   servers: McpServer[];
   contents: string | null;
+  /** True while the projected `contents` is still catching up to the latest
+   * `servers` (the preview hook debounces ~250ms, independently of this
+   * component's own near-instant drift check) — FR25's auto-regen must wait
+   * for this to clear, or it can write a STALE projection: the drift verdict
+   * is computed straight from `servers` (fast) while `contents` lags behind
+   * on its own timer, so firing on the verdict alone can beat `contents` to
+   * the punch and write the pre-edit projection. */
+  projecting: boolean;
   cwd: string;
 }) {
   const path = TARGET_FILE[target];
+  const serversKey = JSON.stringify(servers);
   const [read, setRead] = useState<ReadState>({ phase: "idle" });
   const [manualOpen, setManualOpen] = useState(false);
   const [manualText, setManualText] = useState("");
@@ -95,7 +115,17 @@ export function DriftWrite({
   // check ran, not that anyone read the result.
   const [driftAcked, setDriftAcked] = useState(false);
   const [applied, setApplied] = useState<null | "written" | "copied" | "manual">(null);
+  // Distinguishes an auto-regenerated write (FR25) from a manually-clicked one
+  // so the confirmation callout can say which happened — never blur the two.
+  const [autoApplied, setAutoApplied] = useState(false);
   const toast = useToast();
+
+  // FR25 auto-regen is armed only after a REAL canonical edit since mount —
+  // never on the very first render, so opening the Config tab can't silently
+  // create/overwrite a file the user hasn't touched anything to justify yet.
+  const autoRegenArmedRef = useRef(false);
+  const prevServersKeyRef = useRef(serversKey);
+  const autoApplyingRef = useRef(false);
 
   // Any transition away from a completed verdict (re-check starting, basis
   // change → idle) revokes the acknowledgement with it.
@@ -119,6 +149,7 @@ export function DriftWrite({
     checkSeq.current += 1;
     setDrift({ phase: "idle" });
     setApplied(null);
+    setAutoApplied(false);
     setManualOpen(false);
     setManualText("");
     if (!cwd.trim()) {
@@ -139,12 +170,16 @@ export function DriftWrite({
     };
   }, [cwd, path]);
 
-  // A new projection must be re-reviewed before it can be written.
-  const serversKey = JSON.stringify(servers);
+  // A new projection must be re-reviewed before it can be written. Also arms
+  // FR25 auto-regen the first time this is a REAL change, not the mount run
+  // (prevServersKeyRef starts equal to serversKey, so mount never arms it).
   useEffect(() => {
     checkSeq.current += 1;
     setDrift({ phase: "idle" });
     setApplied(null);
+    setAutoApplied(false);
+    if (prevServersKeyRef.current !== serversKey) autoRegenArmedRef.current = true;
+    prevServersKeyRef.current = serversKey;
   }, [serversKey]);
 
   // Changing the review BASIS (opening the manual paste, or editing its text)
@@ -155,6 +190,7 @@ export function DriftWrite({
     checkSeq.current += 1;
     setDrift({ phase: "idle" });
     setApplied(null);
+    setAutoApplied(false);
   }, [manualOpen, manualText]);
 
   const autoReadFailed = read.phase === "error";
@@ -216,6 +252,15 @@ export function DriftWrite({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usingManual, read, serversKey, target]);
 
+  // FR25, part 1: an "inSync" verdict means these exact on-disk bytes already
+  // match the projection, whoever wrote them — trust it as our own fingerprint
+  // going forward, not just after an explicit write from this session.
+  useEffect(() => {
+    if (drift.phase === "done" && drift.status.status === "inSync" && read.phase === "ok" && read.contents !== null) {
+      setFingerprint(cwd, target, read.contents);
+    }
+  }, [drift, read, cwd, target]);
+
   const apply = async () => {
     if (!contents) return;
 
@@ -223,7 +268,12 @@ export function DriftWrite({
       try {
         await writeNativeFile(cwd, path, contents);
         setApplied("written");
-        toast.push("success", `Wrote ${path}`);
+        // FR25: remember these exact bytes as "ours" so a FUTURE drift verdict
+        // caused purely by canonical moving on (not a hand-edit) can be told
+        // apart from one where someone touched the file out of band.
+        setFingerprint(cwd, target, contents);
+        setAutoApplied(autoApplyingRef.current);
+        toast.push("success", autoApplyingRef.current ? `Auto-regenerated ${path}` : `Wrote ${path}`);
         // Confirm the write actually landed in sync. Auto path: the fresh
         // read-state change re-fires the auto-compare effect (which takes a
         // newer seq and owns the verdict). Manual path: compare here, since
@@ -256,6 +306,41 @@ export function DriftWrite({
       toast.push("info", "Clipboard blocked — copy the previewed config manually");
     }
   };
+
+  // FR25, part 2: auto-regenerate once armed (a real canonical edit happened
+  // since mount) when it's PROVABLY safe — "missing" (nothing to clobber), or
+  // "drifted" where the on-disk bytes still match the fingerprint we last
+  // confirmed as ours (so the drift is purely canonical having moved on, not
+  // a hand-edit). Never in manual-paste mode — a pasted basis is reviewed
+  // deliberately. Everything else (no fingerprint, a mismatched one,
+  // unreadable) still falls through to the manual gated re-ack untouched.
+  useEffect(() => {
+    if (!autoRegenArmedRef.current || usingManual || autoApplyingRef.current) return;
+    // Wait for `contents` to have caught up to the CURRENT servers — see the
+    // prop doc comment above. Re-evaluating once `projecting` clears (it's a
+    // dep below) is what lets a verdict that resolved before `contents` did
+    // still fire correctly once it's safe to.
+    if (projecting) return;
+    if (drift.phase !== "done" || !contents) return;
+    const status = drift.status;
+    const safeToRegen =
+      status.status === "missing" ||
+      (status.status === "drifted" &&
+        read.phase === "ok" &&
+        read.contents !== null &&
+        read.contents === getFingerprint(cwd, target));
+    if (!safeToRegen) return;
+
+    autoApplyingRef.current = true;
+    toast.push(
+      "info",
+      `Auto-regenerating ${path} — canonical changed and no hand-edit was detected.`,
+    );
+    void apply().finally(() => {
+      autoApplyingRef.current = false;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drift, usingManual, contents, projecting, cwd, target, path]);
 
   return (
     <section className="drift-write glass-card">
@@ -377,7 +462,17 @@ export function DriftWrite({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18 }}
         >
-          <Icon name="check" /> Wrote <code>{path}</code> — drift was re-checked above to confirm it's in sync.
+          <Icon name="check" />{" "}
+          {autoApplied ? (
+            <>
+              Auto-regenerated <code>{path}</code> — canonical changed and no hand-edit was
+              detected (FR25); drift was re-checked above to confirm it's in sync.
+            </>
+          ) : (
+            <>
+              Wrote <code>{path}</code> — drift was re-checked above to confirm it's in sync.
+            </>
+          )}
         </motion.div>
       )}
       {applied === "copied" && (

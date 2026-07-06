@@ -444,9 +444,37 @@ worst-first.
       `npm run typecheck && npm run build && npm test` (66/66) all green.
 
 ### v1-committed PRD FRs never built
-- [ ] **FR25 auto-reproject on change.** Zero file-watcher code anywhere
-      (`notify`/`watcher`/`watch(` greps all empty). Canonical edits only take
-      effect on a manual revisit-and-click-Apply.
+- [x] **FR25 auto-reproject on change.** FIXED (2026-07-06) — no file-watcher
+      needed: the canonical store already lives in React state/Context, so
+      "watch for changes" is just reacting to prop/state changes, no `notify`
+      crate required. New `state/nativeFileFingerprint.ts` (localStorage,
+      keyed per cwd+file) records the on-disk bytes last confirmed as our own
+      write, so a drift/diff check can tell "differs because canonical moved
+      on since our last write" (safe to auto-regen) apart from "differs
+      because a human hand-edited the file out of band" (must still block —
+      the drift guard, FR11/UI-FR14, is never weakened, only bypassed when
+      provably safe). `DriftWrite.tsx` (MCP config) and
+      `InstructionsPreview.tsx` (instructions) both: (1) arm only after a REAL
+      canonical edit since mount (never on first render — opening the Config
+      tab can't silently write anything unprompted), then (2) auto-write when
+      the verdict is "missing" (nothing to clobber) or "differs but matches
+      the fingerprint". Caught and fixed a real race during implementation:
+      `DriftWrite`'s drift check runs off `servers` directly (near-instant)
+      while its projected `contents` prop comes from a SEPARATELY debounced
+      preview hook (~250ms) — firing auto-write on the verdict alone could
+      write the stale pre-edit projection. Fixed with a new `projecting` prop
+      (the preview hook's own `loading` flag) the auto-write effect waits on.
+      Caught by a behavioral test, not just review: an early version of the
+      test itself had a non-stateful mock that made a real bug look like 6
+      repeated writes; rewriting the mock to actually model a fake disk
+      surfaced the real timing race and then confirmed the fix. Verified with
+      new render-behavior tests (`DriftWrite.test.tsx`, 5 cases;
+      `InstructionsPreview.test.tsx`, 4 cases) covering: never on mount, safe
+      auto-write + settles (no loop), the debounce race is blocked correctly,
+      fingerprint-match auto-writes, fingerprint-mismatch (possible hand-edit)
+      never auto-writes. Full gate green: `cargo test --workspace` + `cargo
+      clippy --workspace --all-targets` + `npm run typecheck && npm run build
+      && npm test` (84/84).
 - [ ] **FR40 deep-scan option.** `src/components/profile/profileRun.ts` has one
       fixed `PROFILE_PROMPT`; no depth/window parameter exists.
 - [ ] **FR41 dismiss/curate friction patterns.** `frictionPoints` typed

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { readNativeFile, writeNativeFile } from "../../engines";
 import type { InstructionArtifact } from "../../engineTypes";
 import { prefersReducedMotion } from "../../state/motion";
+import { getFingerprint, setFingerprint } from "../../state/nativeFileFingerprint";
 import { useToast } from "../../state/toast";
 import { Icon } from "../Icon";
 import type { AsyncState } from "./hooks";
@@ -13,6 +14,15 @@ import type { AsyncState } from "./hooks";
 // not copy. "Apply" writes straight to `data.path` under `cwd` when set; falls
 // back to the copy-then-place-yourself loop (unchanged) when there's no working
 // directory or the write fails, so nothing regresses for that case.
+//
+// FR25 (auto-reproject on change): once the user has made at least one real
+// canonical edit since mount, `apply` fires automatically instead of waiting
+// for the button click. It still only WRITES directly when the on-disk file
+// is absent/already matching, or — new — when it differs but those bytes are
+// the fingerprint we last confirmed as our own write (so the difference is
+// purely canonical having moved on, not a hand-edit). Anything else still
+// opens the same manual overwrite gate as before, just proactively instead of
+// waiting for a click first — the drift guard itself is never weakened.
 export function InstructionsPreview({
   state,
   cwd,
@@ -38,6 +48,19 @@ export function InstructionsPreview({
   useEffect(() => {
     setOverwrite(null);
   }, [data?.path, data?.contents]);
+
+  // FR25 arming: auto-regen only after a REAL canonical edit since mount —
+  // never on the very first render (prevKeyRef starts equal to artifactKey,
+  // so mount never arms it) — so opening the Config tab can't silently
+  // write/prompt for a file the user hasn't touched anything to justify yet.
+  const artifactKey = data ? `${data.path} ${data.contents}` : null;
+  const prevArtifactKeyRef = useRef(artifactKey);
+  const autoRegenArmedRef = useRef(false);
+  const autoApplyingRef = useRef(false);
+  useEffect(() => {
+    if (prevArtifactKeyRef.current !== artifactKey) autoRegenArmedRef.current = true;
+    prevArtifactKeyRef.current = artifactKey;
+  }, [artifactKey]);
 
   // The gate renders below a 20rem-capped <pre>; without this, clicking
   // "Write instructions" (in the header, top of the card) appears to do
@@ -65,7 +88,11 @@ export function InstructionsPreview({
     setWriting(true);
     try {
       await writeNativeFile(cwd, path, contents);
-      toast.push("success", `Wrote ${path}`);
+      // FR25: remember these exact bytes as ours, so a FUTURE difference
+      // caused purely by canonical moving on (not a hand-edit) can be told
+      // apart from one where someone touched the file out of band.
+      setFingerprint(cwd, path, contents);
+      toast.push("success", autoApplyingRef.current ? `Auto-regenerated ${path}` : `Wrote ${path}`);
     } catch (e) {
       toast.push("error", `Couldn't write ${path} directly (${String(e)}) — falling back to clipboard`);
       await copy(contents, path);
@@ -109,12 +136,40 @@ export function InstructionsPreview({
     }
     // Absent or already identical → nothing is destroyed; write directly.
     if (onDisk === null || onDisk.trim() === artifact.contents.trim()) {
+      // Confirm the on-disk bytes as ours going forward, whoever wrote them.
+      if (onDisk !== null) setFingerprint(cwd, artifact.path, onDisk);
       await write(artifact.path, artifact.contents);
       return;
     }
-    // Exists and differs → BLOCK: require an explicit overwrite decision.
+    // Differs — safe to auto-regenerate ONLY if these exact on-disk bytes are
+    // the fingerprint we last confirmed as our own write (FR25): then the
+    // difference is purely canonical having moved on, not a hand-edit.
+    // Anything else can't rule out a hand-edit and must BLOCK on the manual
+    // overwrite decision below (UI-FR14/NFR2).
+    if (autoRegenArmedRef.current && onDisk === getFingerprint(cwd, artifact.path)) {
+      toast.push(
+        "info",
+        `Auto-regenerating ${artifact.path} — canonical changed and no hand-edit was detected.`,
+      );
+      await write(artifact.path, artifact.contents);
+      return;
+    }
     setOverwrite({ path: artifact.path, contents: artifact.contents, onDisk });
   };
+
+  // FR25: fire `apply` automatically once armed, instead of waiting for the
+  // button click — it still only writes directly in the safe cases above;
+  // anything else just opens the same manual gate proactively.
+  useEffect(() => {
+    if (!autoRegenArmedRef.current || !data || !cwd.trim() || writing || overwrite || autoApplyingRef.current) {
+      return;
+    }
+    autoApplyingRef.current = true;
+    void apply(data).finally(() => {
+      autoApplyingRef.current = false;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artifactKey, cwd]);
 
   return (
     <section className="preview-block">

@@ -65,7 +65,13 @@ export function ConfigPanel({ cwd }: { cwd: string }) {
           <InstructionsPreview state={instructions} cwd={cwd} />
         </div>
 
-        <DriftWrite target={target} servers={store.servers} contents={mcp.data?.contents ?? null} cwd={cwd} />
+        <DriftWrite
+          target={target}
+          servers={store.servers}
+          contents={mcp.data?.contents ?? null}
+          projecting={mcp.loading}
+          cwd={cwd}
+        />
       </div>
     </div>
   );
