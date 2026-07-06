@@ -37,6 +37,10 @@ jobs:
       - name: Install frontend deps
         run: npm ci
 
+      - name: Vendor adapter runtime + packages (NFR4)
+        shell: bash
+        run: npm run vendor-adapters
+
       - name: Build ${{ matrix.bundles }} bundle
         run: npm run tauri build -- --bundles ${{ matrix.bundles }}
 

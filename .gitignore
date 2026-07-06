@@ -10,6 +10,12 @@ dist
 # Tauri
 src-tauri/gen
 
+# Vendored adapter runtime (NFR4) — fetched by scripts/vendor-adapters.sh,
+# not committed (binaries: a portable Node runtime + npm packages, ~150MB+).
+# CI/packaging runs the script before `tauri build`; dev mode falls back to
+# the system npx path when this is absent.
+src-tauri/vendor
+
 # Env / secrets
 .env
 .env.*

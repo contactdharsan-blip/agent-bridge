@@ -5,6 +5,7 @@ mod doctor;
 mod engines;
 mod native_config;
 mod terminal;
+mod vendored_adapters;
 
 use commands::AppState;
 
