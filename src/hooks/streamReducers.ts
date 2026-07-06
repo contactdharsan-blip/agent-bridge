@@ -11,13 +11,14 @@ export function appendToRole(
   chunk: string,
   role: ChatMessage["role"],
   mkId: () => number,
+  agent?: string,
 ): ChatMessage[] {
   const last = messages[messages.length - 1];
   if (last && last.role === role) {
     const updated = { ...last, text: last.text + chunk };
     return [...messages.slice(0, -1), updated];
   }
-  return [...messages, { id: mkId(), role, text: chunk }];
+  return [...messages, { id: mkId(), role, text: chunk, ...(agent ? { agent } : {}) }];
 }
 
 /** Honest turn-end: every stop reason other than a clean end maps to a note that

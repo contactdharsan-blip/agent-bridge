@@ -424,7 +424,7 @@ export default function App() {
                     />
                   )}
                 </AnimatePresence>
-                <RunView stream={stream} />
+                <RunView stream={stream} agents={agents} />
               </div>
             )}
 

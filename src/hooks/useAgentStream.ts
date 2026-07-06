@@ -59,6 +59,9 @@ export function useAgentStream(): AgentStream {
   // look up its permission preset (FR31) without needing cwd threaded through
   // React state — onEvent is only rebuilt on [schedule, flush], not on cwd.
   const cwdRef = useRef<string>("");
+  // Same ref pattern for the emitting agent: flush() stamps assistant messages
+  // with the agent id so post-handoff threads say which agent said what.
+  const agentRef = useRef<string | null>(null);
 
   const flush = useCallback(() => {
     rafRef.current = null;
@@ -70,7 +73,7 @@ export function useAgentStream(): AgentStream {
     setMessages((prev) => {
       let next = prev;
       if (thought) next = appendToRole(next, thought, "thought", newId);
-      if (answer) next = appendToRole(next, answer, "assistant", newId);
+      if (answer) next = appendToRole(next, answer, "assistant", newId, agentRef.current ?? undefined);
       return next;
     });
   }, []);
@@ -146,6 +149,7 @@ export function useAgentStream(): AgentStream {
     async (id: string, cwd: string) => {
       setError(null);
       cwdRef.current = cwd;
+      agentRef.current = id;
       const sid = await ipc.startSession(id, cwd, onEvent);
       setSession(sid);
       setAgentId(id);
@@ -237,6 +241,7 @@ export function useAgentStream(): AgentStream {
     captureRef.current?.reject("Session ended");
     captureRef.current = null;
     cwdRef.current = "";
+    agentRef.current = null;
     setSession(null);
     setAgentId(null);
     setMessages([]);
@@ -252,6 +257,7 @@ export function useAgentStream(): AgentStream {
       // the abandoned session, so it must not stay actionable against the new one.
       setPendingEdit(null);
       cwdRef.current = cwd;
+      agentRef.current = targetAgent;
       // Use the fresh session id directly — going through React state would race the
       // send against the not-yet-committed session.
       const sid = await ipc.startSession(targetAgent, cwd, onEvent);

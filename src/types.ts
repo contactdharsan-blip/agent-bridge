@@ -80,6 +80,9 @@ export interface ChatMessage {
   id: number;
   role: "user" | "assistant" | "system" | "thought";
   text: string;
+  /** Registry id of the emitting agent (assistant messages) — after a handoff
+   * the thread holds two agents' messages, and the bubble label says which. */
+  agent?: string;
 }
 
 /** A pending edit awaiting the user's accept/reject. */

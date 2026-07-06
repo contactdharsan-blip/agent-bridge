@@ -550,13 +550,48 @@ body {
   gap: var(--space-3);
 }
 
+/* The scroll container (use-stick-to-bottom's outer div); bubbles live in
+   .thread-content. Scroll pinning is the library's job — no scroll CSS here. */
 .thread {
   flex: 1;
   overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.thread-content {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding-right: var(--space-1);
+}
+
+/* Shown only when the reader scrolled away from the live bottom. */
+.thread-jump {
+  position: sticky;
+  bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: fit-content;
+  margin-inline: auto;
+  padding: var(--space-1) var(--space-3);
+  background: rgba(17, 24, 39, 0.92);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  z-index: 5;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.thread-jump:hover {
+  color: var(--color-text-primary);
+  border-color: var(--theme-primary);
+}
+.thread-jump svg {
+  transform: rotate(90deg);
 }
 
 .app-hint,
@@ -568,6 +603,15 @@ body {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-lg);
   max-width: 80%;
+  /* Off-screen bubbles skip layout+paint — the honest substitute for
+     virtualization at session scale (hundreds of bubbles, not thousands). */
+  contain: content;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px;
+}
+/* Never skip the streaming bubble (or the busy row after it) mid-measure. */
+.thread-content > :nth-last-child(-n + 2) {
+  content-visibility: visible;
 }
 
 .bubble-role {
@@ -693,6 +737,11 @@ body {
   font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   font-size: var(--text-xs);
   overflow-x: auto;
+  /* A large hunk must never push its own Accept/Reject (the one blocking
+     decision in the run loop) below the viewport — the diff scrolls, the
+     controls stay put. */
+  max-height: 40vh;
+  overflow-y: auto;
 }
 
 .diff-line {
