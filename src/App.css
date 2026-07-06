@@ -909,6 +909,7 @@ body {
   display: inline-flex;
   padding: 0.1rem;
   flex-shrink: 0;
+  transition: opacity var(--transition-fast);
 }
 .banner-close:hover {
   opacity: 1;
@@ -1041,6 +1042,19 @@ body {
 .env-key {
   width: 8rem;
   flex-shrink: 0;
+}
+/* Dense inputs share the primary inputs' focus transition — their rings used
+   to pop in instantly while .field/.prompt-input animated over 150ms. */
+.env-row input,
+.env-row select,
+.snap-row input,
+.snap-row select,
+.handoff-target-row input,
+.handoff-target-row select,
+.server-name,
+.field-inline input,
+.field-inline select {
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .env-value {
   display: flex;
@@ -1777,6 +1791,7 @@ body {
   padding: 0.1rem;
   min-width: 1.5rem;
   min-height: 1.5rem;
+  transition: opacity var(--transition-fast);
 }
 .toast-close:hover {
   opacity: 1;
@@ -1993,6 +2008,8 @@ body {
   height: 100%;
   border-radius: var(--radius-full);
   background: linear-gradient(90deg, var(--theme-primary), var(--theme-secondary));
+  /* Bars grow to new lengths when profiles change, never snap. */
+  transition: width var(--transition-base);
 }
 .weight-meta {
   font-size: var(--text-xs);

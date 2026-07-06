@@ -10,10 +10,19 @@ const ICON: Record<ToastKind, IconName> = {
 };
 
 export function Toasts() {
-  const { toasts, dismiss } = useToast();
+  const { toasts, dismiss, pause, resume } = useToast();
   return (
-    <div className="toast-stack">
-      <AnimatePresence>
+    // Hover/focus freezes every countdown — a toast being read never times out
+    // under the reader. popLayout: an exiting toast leaves layout flow at once
+    // so the survivors spring up smoothly instead of jumping after the exit.
+    <div
+      className="toast-stack"
+      onMouseEnter={pause}
+      onMouseLeave={resume}
+      onFocusCapture={pause}
+      onBlurCapture={resume}
+    >
+      <AnimatePresence mode="popLayout">
         {toasts.map((t) => (
           <motion.div
             key={t.id}

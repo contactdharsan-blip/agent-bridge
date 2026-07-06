@@ -45,7 +45,7 @@ export function InstructionsPreview({
       await writeNativeFile(cwd, path, contents);
       toast.push("success", `Wrote ${path}`);
     } catch (e) {
-      toast.push("info", `Couldn't write ${path} directly (${String(e)}) — falling back to clipboard`);
+      toast.push("error", `Couldn't write ${path} directly (${String(e)}) — falling back to clipboard`);
       await copy(contents, path);
     } finally {
       setWriting(false);

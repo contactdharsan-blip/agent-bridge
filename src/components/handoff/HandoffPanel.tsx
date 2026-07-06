@@ -141,7 +141,7 @@ export function HandoffPanel({
       await stream.switchWithBrief(target, newCwd, brief);
       // The carried draft is spent — next handoff starts fresh.
       save<Partial<HandoffDraft>>(DRAFT_KEY, {});
-      toast.push("success", `Switched to ${target} — brief sent`);
+      toast.push("success", `Switched to ${targetInfo?.displayName ?? target} — brief sent`);
       onSwitched(newCwd);
     } catch (e) {
       toast.push("error", `Handoff failed: ${e}`);
@@ -218,7 +218,7 @@ export function HandoffPanel({
       <div className="handoff-diff-col" data-tour-step="handoff-diff">
         <CarryDiff
           snapshot={snapshot}
-          targetAgent={target}
+          targetAgent={targetInfo?.displayName ?? target}
           canSwitch={canSwitch}
           blockedReason={blockedReason}
           onSwitch={doSwitch}

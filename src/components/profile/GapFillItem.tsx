@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "framer-motion";
 import { useId, useState } from "react";
 import type { GapFill } from "../../engineTypes";
 import { Icon } from "../Icon";
@@ -48,11 +49,21 @@ export function GapFillItem({ gap }: { gap: GapFill }) {
             <Icon name={open ? "minus" : "plus"} /> {open ? "Hide" : "Review"} generated skill:{" "}
             {gap.resolution.name}
           </button>
-          {open && (
-            <pre id={skillId} className="code-preview">
-              {gap.resolution.skillMd}
-            </pre>
-          )}
+          <AnimatePresence initial={false}>
+            {open && (
+              <motion.pre
+                id={skillId}
+                className="code-preview"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                style={{ overflow: "hidden" }}
+              >
+                {gap.resolution.skillMd}
+              </motion.pre>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

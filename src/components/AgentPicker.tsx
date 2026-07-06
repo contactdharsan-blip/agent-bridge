@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import type { PermissionPreset } from "../state/permissionPresets";
 import type { AgentInfo } from "../types";
@@ -44,6 +44,9 @@ export function AgentPicker({
   // No API key set — not a blocker: the agent's own login (subscription/OAuth)
   // is used. Connect stays enabled; a failed connect is the real verdict.
   const byoLogin = current?.authStatus === "byoLogin";
+  // The one blocked state that used to be silent: Connect disabled for want of
+  // a working directory, with no visible pointer at the fix.
+  const needsCwd = !connected && !connecting && !cwd.trim();
   const [rechecking, setRechecking] = useState(false);
   const recheck = async () => {
     setRechecking(true);
@@ -100,6 +103,7 @@ export function AgentPicker({
           className="btn btn-primary btn-connect"
           disabled={disabled || blocked || !cwd.trim()}
           onClick={onConnect}
+          aria-describedby={needsCwd ? "connect-blocked" : undefined}
           title={blocked ? "This agent reports an error — resolve it before connecting" : undefined}
           whileHover={disabled || blocked || !cwd.trim() ? undefined : { scale: 1.03 }}
           whileTap={disabled || blocked || !cwd.trim() ? undefined : { scale: 0.97 }}
@@ -128,19 +132,42 @@ export function AgentPicker({
           </button>
         )}
       </div>
-      {blocked && (
-        <p className="agent-blocked-note">
-          <Icon name="alert" /> {current?.displayName} reports an error and can't start a session
-          until it clears.
-        </p>
-      )}
-      {!blocked && byoLogin && (
-        <p className="callout">
-          <Icon name="info" /> {current?.displayName} has no API key set — Agent Bridge will use
-          your existing {current?.displayName} login (subscription or OAuth). No key needed; just
-          Connect.
-        </p>
-      )}
+      {/* These notes live in the header and shove the tab bar + main area on
+          mount — animate height so the push is a settle, not a jump. They're
+          informational, not gates. */}
+      <AnimatePresence initial={false}>
+        {needsCwd && (
+          <motion.p
+            key="needs-cwd"
+            className="agent-blocked-note"
+            id="connect-blocked"
+            {...noteMotion}
+          >
+            <Icon name="info" /> Set a working directory to connect.
+          </motion.p>
+        )}
+        {blocked && (
+          <motion.p key="blocked" className="agent-blocked-note" {...noteMotion}>
+            <Icon name="alert" /> {current?.displayName} reports an error and can't start a session
+            until it clears.
+          </motion.p>
+        )}
+        {!blocked && byoLogin && (
+          <motion.p key="byo" className="callout" {...noteMotion}>
+            <Icon name="info" /> {current?.displayName} has no API key set — Agent Bridge will use
+            your existing {current?.displayName} login (subscription or OAuth). No key needed; just
+            Connect.
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
+const noteMotion = {
+  initial: { opacity: 0, height: 0 },
+  animate: { opacity: 1, height: "auto" },
+  exit: { opacity: 0, height: 0 },
+  transition: { duration: 0.18, ease: "easeOut" as const },
+  style: { overflow: "hidden" as const, margin: 0 },
+};

@@ -2,7 +2,7 @@
 // / Secrets). Like ipc.ts, this is the only place these commands are invoked, so
 // the rest of the UI stays a pure consumer of typed results.
 
-import { invoke } from "@tauri-apps/api/core";
+import { tauriInvoke } from "./ipc";
 import type {
   Canonical,
   CoderProfile,
@@ -25,7 +25,7 @@ import type {
 
 /** Preview a target's native MCP config without writing it (dry-run, FR24). */
 export function previewMcp(target: Target, servers: McpServer[]): Promise<McpProjection> {
-  return invoke("preview_mcp", { target, servers });
+  return tauriInvoke("preview_mcp", { target, servers });
 }
 
 /** Check whether the on-disk native file drifted from canonical (FR11). */
@@ -34,7 +34,7 @@ export function checkDrift(
   onDisk: string | null,
   servers: McpServer[],
 ): Promise<DriftStatus> {
-  return invoke("check_drift", { target, onDisk, servers });
+  return tauriInvoke("check_drift", { target, onDisk, servers });
 }
 
 /** Preview the projected instructions file (equivalent, not identical). */
@@ -42,31 +42,31 @@ export function previewInstructions(
   target: Target,
   instructions: Instructions,
 ): Promise<InstructionArtifact> {
-  return invoke("preview_instructions", { target, instructions });
+  return tauriInvoke("preview_instructions", { target, instructions });
 }
 
 // ---- Handoff --------------------------------------------------------------
 
 /** Render a context snapshot as the incoming agent's opening brief (M5). */
 export function buildHandoffBrief(snapshot: ContextSnapshot): Promise<string> {
-  return invoke("build_handoff_brief", { snapshot });
+  return tauriInvoke("build_handoff_brief", { snapshot });
 }
 
 // ---- Profile / Gap-Filling / Continuity -----------------------------------
 
 /** Validate raw Profile-Skill JSON at the boundary (rejects non-conforming). */
 export function validateProfile(json: string): Promise<CoderProfile> {
-  return invoke("validate_profile", { json });
+  return tauriInvoke("validate_profile", { json });
 }
 
 /** Merge up to three validated per-agent profiles into one. */
 export function mergeProfiles(profiles: CoderProfile[]): Promise<MergedProfile> {
-  return invoke("merge_profiles", { profiles });
+  return tauriInvoke("merge_profiles", { profiles });
 }
 
 /** Personalized feature recommendations for one agent's profile (FR20a). */
 export function recommendFeatures(profile: CoderProfile): Promise<Recommendation[]> {
-  return invoke("recommend_features", { profile });
+  return tauriInvoke("recommend_features", { profile });
 }
 
 /** The four-section Workflow Continuity Report for moving to a target (FR21). */
@@ -75,19 +75,19 @@ export function workflowContinuity(
   store: Canonical,
   profile: MergedProfile,
 ): Promise<ContinuityReport> {
-  return invoke("workflow_continuity", { target, store, profile });
+  return tauriInvoke("workflow_continuity", { target, store, profile });
 }
 
 /** Gap-fills for moving work to a target (capability + profile-specific). */
 export function gapFillsFor(target: Agent, profile: MergedProfile): Promise<GapFill[]> {
-  return invoke("gap_fills_for", { target, profile });
+  return tauriInvoke("gap_fills_for", { target, profile });
 }
 
 // ---- Secrets --------------------------------------------------------------
 
 /** Audit which secret references resolve now, without returning any value (FR27). */
 export function auditSecretBindings(servers: McpServer[]): Promise<SecretBinding[]> {
-  return invoke("audit_secret_bindings", { servers });
+  return tauriInvoke("audit_secret_bindings", { servers });
 }
 
 // ---- Native config file I/O ------------------------------------------------
@@ -99,15 +99,15 @@ export function auditSecretBindings(servers: McpServer[]): Promise<SecretBinding
 
 /** Read a native file under `cwd`. `null` if it doesn't exist yet (not an error). */
 export function readNativeFile(cwd: string, path: string): Promise<string | null> {
-  return invoke("read_native_file", { cwd, path });
+  return tauriInvoke("read_native_file", { cwd, path });
 }
 
 /** Write `contents` to a native file under `cwd`, creating parent dirs as needed. */
 export function writeNativeFile(cwd: string, path: string, contents: string): Promise<void> {
-  return invoke("write_native_file", { cwd, path, contents });
+  return tauriInvoke("write_native_file", { cwd, path, contents });
 }
 
 /** Parse an existing native MCP config back into canonical servers (FR26 import). */
 export function parseNativeMcp(target: Target, contents: string): Promise<McpServer[]> {
-  return invoke("parse_native_mcp", { target, contents });
+  return tauriInvoke("parse_native_mcp", { target, contents });
 }

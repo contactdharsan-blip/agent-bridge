@@ -178,7 +178,7 @@ export function DriftWrite({
         }
         return;
       } catch (e) {
-        toast.push("info", `Couldn't write ${path} directly (${String(e)}) — falling back to clipboard`);
+        toast.push("error", `Couldn't write ${path} directly (${String(e)}) — falling back to clipboard`);
         // fall through to the clipboard fallback below
       }
     }

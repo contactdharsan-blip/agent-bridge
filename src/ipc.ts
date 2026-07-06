@@ -5,9 +5,31 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
 import type { AgentEvent, AgentInfo, Decision, DoctorReport, SessionId } from "./types";
 
+/**
+ * Rejections from `invoke` outside a real Tauri window are a bare
+ * `TypeError: Cannot read properties of undefined (reading 'invoke')` — which
+ * then leaks verbatim into banners and callouts. Translate exactly that case
+ * into an honest, actionable message (keeping the raw detail); every real
+ * engine error passes through untouched so callers' parsing (e.g. the
+ * AUTH_REQUIRED: prefix) still works.
+ */
+export async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await invoke<T>(cmd, args);
+  } catch (e) {
+    const s = e instanceof Error ? e.message : String(e);
+    if (s.includes("reading 'invoke'") || s.includes("__TAURI_INTERNALS__")) {
+      throw new Error(
+        `Desktop engine unreachable — this window isn't running inside the Tauri app, so there is no backend to call. Launch via \`npm run tauri dev\`. (${s})`,
+      );
+    }
+    throw e;
+  }
+}
+
 /** The agents the Rust core knows how to launch (with live auth-presence hints). */
 export function listAgents(): Promise<AgentInfo[]> {
-  return invoke<AgentInfo[]>("list_agents");
+  return tauriInvoke<AgentInfo[]>("list_agents");
 }
 
 /**
@@ -21,12 +43,12 @@ export function startSession(
 ): Promise<SessionId> {
   const channel = new Channel<AgentEvent>();
   channel.onmessage = onEvent;
-  return invoke<SessionId>("start_session", { agentId, cwd, onEvent: channel });
+  return tauriInvoke<SessionId>("start_session", { agentId, cwd, onEvent: channel });
 }
 
 /** Send a user prompt to the active session. */
 export function sendPrompt(session: SessionId, text: string): Promise<void> {
-  return invoke("send_prompt", { session, text });
+  return tauriInvoke("send_prompt", { session, text });
 }
 
 /** Resolve a pending edit/permission request (the accept/reject diff action). */
@@ -34,12 +56,12 @@ export function resolvePermission(
   requestId: string,
   decision: Decision,
 ): Promise<void> {
-  return invoke("resolve_permission", { requestId, decision });
+  return tauriInvoke("resolve_permission", { requestId, decision });
 }
 
 /** Cancel the in-flight turn for a session. */
 export function cancel(session: SessionId): Promise<void> {
-  return invoke("cancel", { session });
+  return tauriInvoke("cancel", { session });
 }
 
 /**
@@ -48,5 +70,5 @@ export function cancel(session: SessionId): Promise<void> {
  * so a user (or the solo builder) can quickly see why something isn't working.
  */
 export function runDoctor(): Promise<DoctorReport> {
-  return invoke<DoctorReport>("run_doctor");
+  return tauriInvoke<DoctorReport>("run_doctor");
 }

@@ -1,6 +1,8 @@
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { buildHandoffBrief } from "../../engines";
 import type { ContextSnapshot } from "../../engineTypes";
+import { FADE } from "../../state/motion";
 import { Icon } from "../Icon";
 
 // The pre-switch carry-diff (UI-FR16/17) — a BLOCKING honesty gate. What carries is
@@ -44,13 +46,17 @@ export function CarryDiff({
   snapshot: ContextSnapshot;
   targetAgent: string;
   canSwitch: boolean;
-  onSwitch: (brief: string) => void;
+  onSwitch: (brief: string) => void | Promise<void>;
   blockedReason?: string | null;
 }) {
   const [brief, setBrief] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acked, setAcked] = useState(false);
+  // Switching spawns a subprocess session — multi-second. Without a pending
+  // state the button sat unchanged until the toast landed (and double-clicks
+  // could fire the switch twice).
+  const [switching, setSwitching] = useState(false);
 
   // Any edit to the snapshot invalidates a built+acknowledged brief, forcing a
   // rebuild and re-ack so the sent brief always matches the reviewed carry-diff.
@@ -122,7 +128,10 @@ export function CarryDiff({
       )}
 
       {brief && (
-        <>
+        // Entrance fade is surface-only: the ack checkbox arrives unticked and
+        // the switch stays disabled until it's checked — nothing here softens
+        // the gate, it just stops the largest block in the panel popping in.
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={FADE}>
           <div className="callout callout-honesty">
             <Icon name="info" />
             <span>
@@ -139,18 +148,36 @@ export function CarryDiff({
 
           <button
             className="btn btn-primary"
-            disabled={!acked || !canSwitch}
-            onClick={() => onSwitch(brief)}
+            disabled={!acked || !canSwitch || switching}
+            onClick={async () => {
+              setSwitching(true);
+              try {
+                await onSwitch(brief);
+              } finally {
+                setSwitching(false);
+              }
+            }}
             aria-describedby={!canSwitch && blockedReason ? "switch-blocked" : undefined}
           >
-            <Icon name="arrowRight" /> Switch to {targetAgent} &amp; send brief
+            {switching ? (
+              <motion.span
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
+                style={{ display: "inline-flex" }}
+              >
+                <Icon name="refresh" />
+              </motion.span>
+            ) : (
+              <Icon name="arrowRight" />
+            )}{" "}
+            {switching ? `Switching to ${targetAgent}…` : `Switch to ${targetAgent} & send brief`}
           </button>
           {!canSwitch && blockedReason && (
             <p className="callout callout-warning" id="switch-blocked">
               <Icon name="alert" /> {blockedReason}
             </p>
           )}
-        </>
+        </motion.div>
       )}
     </div>
   );

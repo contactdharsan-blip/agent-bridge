@@ -54,9 +54,11 @@ export function ProfileCollector({
     }
   };
 
+  const [validating, setValidating] = useState(false);
   const validatePaste = async () => {
     setError(null);
     setReason("schema"); // this path can only fail inside validate_profile
+    setValidating(true);
     try {
       const profile = await validateProfile(paste);
       onAdd(profile);
@@ -65,6 +67,8 @@ export function ProfileCollector({
     } catch (e) {
       setError(String(e));
       toast.push("error", "Profile rejected at the boundary");
+    } finally {
+      setValidating(false);
     }
   };
 
@@ -101,8 +105,8 @@ export function ProfileCollector({
           value={paste}
           onChange={(e) => setPaste(e.target.value)}
         />
-        <button className="btn btn-sm" onClick={validatePaste} disabled={!paste.trim()}>
-          <Icon name="shield" /> Validate &amp; add
+        <button className="btn btn-sm" onClick={validatePaste} disabled={!paste.trim() || validating}>
+          <Icon name="shield" /> {validating ? "Validating…" : "Validate & add"}
         </button>
       </div>
 

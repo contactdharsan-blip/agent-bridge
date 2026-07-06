@@ -1,5 +1,7 @@
+import { motion } from "framer-motion";
 import { useState } from "react";
 import type { ConfigValue, EnvVar, McpTransport } from "../../engineTypes";
+import { SPRING_SNAPPY } from "../../state/motion";
 import { useCanonical } from "../../state/canonical";
 import { Icon } from "../Icon";
 import { PanelEmpty } from "../PanelEmpty";
@@ -173,8 +175,12 @@ export function ServerEditor() {
         />
       )}
 
+      {/* `layout` animates the reflow when a card is added or removed, so
+          survivors settle instead of teleporting. (Keys are still positional —
+          canonical servers carry no stable id — so no exit animation: with
+          index keys AnimatePresence would exit-animate the wrong card.) */}
       {store.servers.map((server, index) => (
-        <div key={index} className="glass-card server-card">
+        <motion.div key={index} layout transition={SPRING_SNAPPY} className="glass-card server-card">
           <div className="server-card-head">
             <input
               className="server-name"
@@ -211,7 +217,7 @@ export function ServerEditor() {
               in a later iteration).
             </p>
           )}
-        </div>
+        </motion.div>
       ))}
 
       <label className="field instructions-field">

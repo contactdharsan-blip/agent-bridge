@@ -81,6 +81,9 @@ export default function App() {
   const [importing, setImporting] = useState(false);
   const importConfig = useCallback(async () => {
     setImporting(true);
+    // Immediate pending affordance — the palette closes on run, and the only
+    // other "Importing…" label lives on the (dismissable) onboarding card.
+    toast.push("info", `Importing existing config from ${cwd.trim()}…`);
     try {
       await runImportWizard({
         cwd: cwd.trim(),
@@ -368,7 +371,15 @@ export default function App() {
         <TabBar tabs={TABS} active={tab} onChange={setTab} />
       </header>
 
+      <AnimatePresence initial={false}>
       {connectError && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          style={{ overflow: "hidden" }}
+        >
         <div className="banner banner-error" role="alert">
           <Icon name="alert" />
           <div className="banner-body">
@@ -391,7 +402,9 @@ export default function App() {
             <Icon name="x" />
           </button>
         </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       <main className="app-main">
         <AnimatePresence mode="wait">

@@ -71,7 +71,10 @@ export function OnboardingCard({
       className="glass-card onboarding"
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.98 }}
+      // Height collapses on exit too, or the thread below jumps up by the
+      // card's full height the instant the fade finishes.
+      exit={{ opacity: 0, scale: 0.98, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }}
+      style={{ overflow: "hidden" }}
       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
     >
       <div className="onboarding-head">
