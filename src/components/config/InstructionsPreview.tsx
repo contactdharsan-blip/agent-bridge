@@ -75,6 +75,14 @@ export function InstructionsPreview({
     }
   };
 
+  // Live projection for staleness checks inside async flows — `apply` closes
+  // over the artifact at click time, and the reset-on-data-change effect can't
+  // catch a gate that OPENS after the change (the read is async).
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const isStale = (artifact: InstructionArtifact) =>
+    dataRef.current?.path !== artifact.path || dataRef.current?.contents !== artifact.contents;
+
   const apply = async (artifact: InstructionArtifact) => {
     if (!cwd.trim()) {
       await copy(artifact.contents, artifact.path);
@@ -92,6 +100,13 @@ export function InstructionsPreview({
       return;
     }
     setWriting(false);
+    // The projection may have re-rendered while we were reading (a canonical
+    // edit inside the 250ms debounce) — never write or open a review for
+    // contents the preview no longer shows.
+    if (isStale(artifact)) {
+      toast.push("info", "The projection changed while comparing — review the updated preview and write again");
+      return;
+    }
     // Absent or already identical → nothing is destroyed; write directly.
     if (onDisk === null || onDisk.trim() === artifact.contents.trim()) {
       await write(artifact.path, artifact.contents);

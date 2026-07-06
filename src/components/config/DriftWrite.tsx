@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { checkDrift, readNativeFile, writeNativeFile } from "../../engines";
 import type { DriftStatus, McpServer, Target } from "../../engineTypes";
 import { useToast } from "../../state/toast";
@@ -103,10 +103,20 @@ export function DriftWrite({
     if (drift.phase !== "done") setDriftAcked(false);
   }, [drift.phase]);
 
+  // Monotonic token shared by every comparison (auto, manual click, post-write
+  // confirm): each run captures ++seq and only commits its verdict if still
+  // current, and every basis invalidation bumps it. Guarantees a verdict can
+  // never land against a basis it wasn't run for (a stale manual re-check
+  // resolving after a paste edit could otherwise unlock the gate), without
+  // putting drift.phase in any effect's deps — the previous shape cancelled
+  // its own in-flight check via its cleanup and stuck the gate at "checking".
+  const checkSeq = useRef(0);
+
   // Auto-read the on-disk file whenever the target or working directory
   // changes, and reset the review gate — a new file (or a new projection
   // below) must be re-reviewed before it can be applied.
   useEffect(() => {
+    checkSeq.current += 1;
     setDrift({ phase: "idle" });
     setApplied(null);
     setManualOpen(false);
@@ -132,6 +142,7 @@ export function DriftWrite({
   // A new projection must be re-reviewed before it can be written.
   const serversKey = JSON.stringify(servers);
   useEffect(() => {
+    checkSeq.current += 1;
     setDrift({ phase: "idle" });
     setApplied(null);
   }, [serversKey]);
@@ -141,6 +152,7 @@ export function DriftWrite({
   // on-disk value, then edit the paste and write past the stale gate. Same class
   // as the cwd/servers resets above; keeps the BLOCKING gate honest (NFR2).
   useEffect(() => {
+    checkSeq.current += 1;
     setDrift({ phase: "idle" });
     setApplied(null);
   }, [manualOpen, manualText]);
@@ -167,34 +179,42 @@ export function DriftWrite({
   const reviewed = compared && (!needsAck || driftAcked);
 
   const runCheck = () => {
+    const seq = ++checkSeq.current;
     setDrift({ phase: "checking" });
     checkDrift(target, onDiskValue, servers)
-      .then((status) => setDrift({ phase: "done", status }))
-      .catch((e) => setDrift({ phase: "error", message: String(e) }));
+      .then((status) => {
+        if (checkSeq.current === seq) setDrift({ phase: "done", status });
+      })
+      .catch((e) => {
+        if (checkSeq.current === seq) setDrift({ phase: "error", message: String(e) });
+      });
   };
 
   // Auto-compare as soon as an auto-read lands: the check is read-only, so
   // running it costs nothing and removes the dead "Check drift" click. Never
-  // fires in manual-paste mode (a paste is checked deliberately), and any
-  // basis change resets drift to idle above, which re-arms this. The BLOCKING
-  // part of the gate is unchanged — it lives in `reviewed`, not in who
-  // triggered the comparison.
+  // fires in manual-paste mode (a paste is checked deliberately). Deps are the
+  // BASIS only — never drift.phase: keying on the state this effect itself
+  // sets made React run the cleanup right after the "checking" render, which
+  // cancelled the in-flight IPC and left the gate stuck at "checking" forever
+  // in the real app (mocked IPC resolves before the re-render and hid it).
+  // The BLOCKING part of the gate is unchanged — it lives in `reviewed`.
   useEffect(() => {
-    if (usingManual || read.phase !== "ok" || drift.phase !== "idle") return;
+    if (usingManual || read.phase !== "ok") return;
+    const seq = ++checkSeq.current;
     setDrift({ phase: "checking" });
-    let cancelled = false;
     checkDrift(target, read.contents, servers)
       .then((status) => {
-        if (!cancelled) setDrift({ phase: "done", status });
+        if (checkSeq.current === seq) setDrift({ phase: "done", status });
       })
       .catch((e) => {
-        if (!cancelled) setDrift({ phase: "error", message: String(e) });
+        if (checkSeq.current === seq) setDrift({ phase: "error", message: String(e) });
       });
     return () => {
-      cancelled = true;
+      // Unmount / basis change: retire this run so it can't commit late.
+      checkSeq.current += 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [usingManual, read, drift.phase, serversKey, target]);
+  }, [usingManual, read, serversKey, target]);
 
   const apply = async () => {
     if (!contents) return;
@@ -204,15 +224,21 @@ export function DriftWrite({
         await writeNativeFile(cwd, path, contents);
         setApplied("written");
         toast.push("success", `Wrote ${path}`);
-        // Confirm the write actually landed in sync — re-read + re-check.
+        // Confirm the write actually landed in sync. Auto path: the fresh
+        // read-state change re-fires the auto-compare effect (which takes a
+        // newer seq and owns the verdict). Manual path: compare here, since
+        // the auto effect never runs in manual mode.
+        const seq = ++checkSeq.current;
         setDrift({ phase: "checking" });
         try {
           const fresh = await readNativeFile(cwd, path);
           setRead({ phase: "ok", contents: fresh });
-          const status = await checkDrift(target, fresh, servers);
-          setDrift({ phase: "done", status });
+          if (usingManual) {
+            const status = await checkDrift(target, fresh, servers);
+            if (checkSeq.current === seq) setDrift({ phase: "done", status });
+          }
         } catch (e) {
-          setDrift({ phase: "error", message: String(e) });
+          if (checkSeq.current === seq) setDrift({ phase: "error", message: String(e) });
         }
         return;
       } catch (e) {

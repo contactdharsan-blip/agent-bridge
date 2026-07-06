@@ -65,10 +65,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (kind: ToastKind, text: string) => {
       const id = nextId.current++;
       setToasts((prev) => {
-        const next = [...prev, { id, kind, text }];
-        if (next.length <= MAX_VISIBLE) return next;
-        const drop = next.findIndex((t) => t.kind !== "error");
-        return drop === -1 ? next : next.filter((_, i) => i !== drop);
+        // The incoming toast is always kept ("never silent" is this file's
+        // contract) — the drop candidate comes from the EXISTING stack only:
+        // oldest non-error first, oldest error if everything visible is one.
+        if (prev.length < MAX_VISIBLE) return [...prev, { id, kind, text }];
+        const drop = prev.findIndex((t) => t.kind !== "error");
+        const kept = drop === -1 ? prev.slice(1) : prev.filter((_, i) => i !== drop);
+        return [...kept, { id, kind, text }];
       });
       if (paused.current) {
         // Arrive already-frozen so hovering the stack doesn't race a new timer.
@@ -110,6 +113,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       clearTimeout(cd.handle);
       countdowns.current.delete(id);
     }
+    // An empty stack can't be hovered or focused — clear any latched pause.
+    // (Dismissing a focused toast removes it without firing blur, so the
+    // pause could otherwise stay on forever and freeze all future toasts.)
+    if (toasts.length === 0) paused.current = false;
   }, [toasts]);
 
   return <Ctx.Provider value={{ toasts, push, dismiss, pause, resume }}>{children}</Ctx.Provider>;

@@ -62,6 +62,13 @@ export function useAgentStream(): AgentStream {
   // Same ref pattern for the emitting agent: flush() stamps assistant messages
   // with the agent id so post-handoff threads say which agent said what.
   const agentRef = useRef<string | null>(null);
+  // Session epoch: each connect/switch/disconnect bumps it, and every session's
+  // event channel is wrapped with the epoch it was opened under. Events from a
+  // superseded session (an old adapter still streaming after a switch — the
+  // backend keeps it alive until replaced) are DROPPED at the door instead of
+  // bleeding into the new thread stamped with the new agent's name, unlocking
+  // the composer mid-turn, or resurfacing a dead session's edit request.
+  const epochRef = useRef(0);
 
   const flush = useCallback(() => {
     rafRef.current = null;
@@ -145,19 +152,31 @@ export function useAgentStream(): AgentStream {
     [schedule, flush],
   );
 
+  /** Wrap the event callback with the epoch it was opened under — a superseded
+   * session's channel keeps delivering, and its events must not act on the
+   * current session's state. */
+  const gatedOnEvent = useCallback(
+    (epoch: number) => (event: AgentEvent) => {
+      if (epochRef.current !== epoch) return;
+      onEvent(event);
+    },
+    [onEvent],
+  );
+
   const connect = useCallback(
     async (id: string, cwd: string) => {
       setError(null);
       cwdRef.current = cwd;
       agentRef.current = id;
-      const sid = await ipc.startSession(id, cwd, onEvent);
+      const epoch = ++epochRef.current;
+      const sid = await ipc.startSession(id, cwd, gatedOnEvent(epoch));
       setSession(sid);
       setAgentId(id);
       // A fresh connect starts a fresh thread (a disconnect deliberately keeps
       // the old transcript on screen until this point — see disconnect below).
       setMessages([]);
     },
-    [onEvent],
+    [gatedOnEvent],
   );
 
   const prompt = useCallback(
@@ -184,14 +203,18 @@ export function useAgentStream(): AgentStream {
           reject("No active session");
           return;
         }
-        captureRef.current = { resolve, reject, buf: "" };
+        const cap: Capture = { resolve, reject, buf: "" };
+        captureRef.current = cap;
         setMessages((prev) => [...prev, { id: newId(), role: "user", text }]);
         setTurnActive(true);
         ipc.sendPrompt(session, text).catch((e) => {
-          if (captureRef.current) {
+          // Only unwind if OUR capture is still the registered one — a slow
+          // adapter's late rejection must not orphan a newer session's capture
+          // or unlock the composer mid-new-turn.
+          if (captureRef.current === cap) {
             captureRef.current = null;
+            setTurnActive(false);
           }
-          setTurnActive(false);
           reject(String(e));
         });
       }),
@@ -234,6 +257,9 @@ export function useAgentStream(): AgentStream {
   const disconnect = useCallback(() => {
     // Cancel any in-flight turn so the outgoing adapter isn't left running mid-turn,
     // then reset all session-scoped state. Same session-swap shape as switchWithBrief.
+    // The epoch bump gates out anything the old channel still delivers — the
+    // backend keeps the old host alive until the next connect replaces it.
+    epochRef.current += 1;
     if (session) void ipc.cancel(session).catch(() => {});
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
@@ -266,11 +292,40 @@ export function useAgentStream(): AgentStream {
       // Drop any unresolved edit from the outgoing agent — its requestId belongs to
       // the abandoned session, so it must not stay actionable against the new one.
       setPendingEdit(null);
+      // Retire the outgoing session BEFORE the new agent id is stamped: cancel
+      // its in-flight turn, drop any half-flushed buffered text (it belongs to
+      // the old agent and would otherwise flush into the new thread under the
+      // new agent's name), and settle any pending capture honestly.
+      if (session) void ipc.cancel(session).catch(() => {});
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      answerBuf.current = "";
+      thoughtBuf.current = "";
+      captureRef.current?.reject("Session ended by handoff switch");
+      captureRef.current = null;
       cwdRef.current = cwd;
       agentRef.current = targetAgent;
+      const epoch = ++epochRef.current;
       // Use the fresh session id directly — going through React state would race the
       // send against the not-yet-committed session.
-      const sid = await ipc.startSession(targetAgent, cwd, onEvent);
+      let sid: SessionId;
+      try {
+        sid = await ipc.startSession(targetAgent, cwd, gatedOnEvent(epoch));
+      } catch (e) {
+        // The outgoing session was already retired above — don't keep showing
+        // it as live. Same end-state as disconnect; the error still travels up
+        // so the panel reports the failed handoff.
+        setSession(null);
+        setAgentId(null);
+        setTurnActive(false);
+        pushSystem(
+          setMessages,
+          "Handoff failed — the previous session was ended when the switch began. Connect again from the header.",
+        );
+        throw e;
+      }
       setSession(sid);
       setAgentId(targetAgent);
       setMessages((prev) => [
@@ -283,9 +338,20 @@ export function useAgentStream(): AgentStream {
         { id: newId(), role: "user", text: brief },
       ]);
       setTurnActive(true);
-      await ipc.sendPrompt(sid, brief);
+      try {
+        await ipc.sendPrompt(sid, brief);
+      } catch (e) {
+        // The session opened but the brief never arrived — say so instead of
+        // leaving a "sent" bubble implying delivery and a composer frozen at
+        // "the agent is responding" (same class as prompt()'s catch).
+        setTurnActive(false);
+        pushSystem(
+          setMessages,
+          `Couldn't deliver the brief to ${targetAgent}: ${String(e)} — the new session is open; resend from the composer.`,
+        );
+      }
     },
-    [onEvent],
+    [session, gatedOnEvent],
   );
 
   return {

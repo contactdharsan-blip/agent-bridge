@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentStream } from "../../hooks/useAgentStream";
 import type { ContextSnapshot } from "../../engineTypes";
 import { useCanonical } from "../../state/canonical";
@@ -57,7 +57,10 @@ export function HandoffPanel({
       ? draft.target
       : (agents.find((a) => a.id !== source)?.id ?? ""),
   );
-  const [workingDirectory, setWorkingDirectory] = useState(draft.workingDirectory ?? cwd);
+  // `||`, not `??`: an empty persisted string is "unset" and must not shadow
+  // the live session cwd (a day-one draft saved while cwd was still empty
+  // would otherwise pin this field — and, via onSwitched, App's cwd — to "").
+  const [workingDirectory, setWorkingDirectory] = useState(draft.workingDirectory || cwd);
   const [openFiles, setOpenFiles] = useState<string[]>(draft.openFiles ?? []);
   const [taskList, setTaskList] = useState<{ text: string; status: "pending" | "inProgress" | "completed" }[]>(draft.taskList ?? []);
   const [recentEdits, setRecentEdits] = useState<{ file: string; hunkSummary: string }[]>(draft.recentEdits ?? []);
@@ -75,19 +78,28 @@ export function HandoffPanel({
   const [draftError, setDraftError] = useState<string | null>(null);
   const sourceName = agents.find((a) => a.id === source)?.displayName ?? source ?? "the agent";
 
+  // Save only once the values differ from what this mount started with: the
+  // mount itself must not persist a draft (the tour visits this tab on first
+  // launch, and an auto-saved snapshot of the initializers — empty cwd,
+  // default MCP list — would permanently shadow the live values on every
+  // later visit). Value comparison, not a first-run flag, so StrictMode's
+  // doubled effects can't sneak the mount snapshot into storage either.
+  const draftJson = JSON.stringify({
+    target,
+    workingDirectory,
+    openFiles,
+    taskList,
+    recentEdits,
+    decisions,
+    conversationSummary,
+    activeMcp,
+    activeSkills,
+  } satisfies HandoffDraft);
+  const mountDraftJson = useRef(draftJson);
   useEffect(() => {
-    save<HandoffDraft>(DRAFT_KEY, {
-      target,
-      workingDirectory,
-      openFiles,
-      taskList,
-      recentEdits,
-      decisions,
-      conversationSummary,
-      activeMcp,
-      activeSkills,
-    });
-  }, [target, workingDirectory, openFiles, taskList, recentEdits, decisions, conversationSummary, activeMcp, activeSkills]);
+    if (draftJson === mountDraftJson.current) return;
+    save<HandoffDraft>(DRAFT_KEY, JSON.parse(draftJson) as HandoffDraft);
+  }, [draftJson]);
 
   const snapshot = useMemo<ContextSnapshot>(
     () => ({
