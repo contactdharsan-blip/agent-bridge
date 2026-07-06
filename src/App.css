@@ -99,7 +99,7 @@
   --removed: rgba(239, 68, 68, 0.16);
 
   color-scheme: dark;
-  font-family: "General Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 * {
@@ -186,7 +186,7 @@ body {
 
 .app-header h1 {
   margin: 0;
-  font-family: "Bricolage Grotesque", "General Sans", system-ui, sans-serif;
+  font-family: system-ui, sans-serif;
   font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -323,6 +323,14 @@ body {
   color: var(--theme-primary-light);
   border-color: rgba(var(--theme-primary-rgb), 0.3);
 }
+/* Distinct from .badge-accent so an NFR2 honesty flag (equivalent-not-identical)
+ * never reads as the same decoration as an unrelated accent tag. */
+.badge-honesty {
+  background: rgba(var(--theme-primary-rgb), 0.18);
+  color: var(--theme-primary-light);
+  border-color: var(--theme-primary);
+  font-weight: 700;
+}
 
 /* ---- Tab bar (glass segmented control, DESIGN §7.4) ------------------------- */
 .tabbar {
@@ -400,7 +408,7 @@ body {
   align-items: center;
   gap: var(--space-2);
   margin: 0 0 var(--space-2);
-  font-family: "Bricolage Grotesque", "General Sans", system-ui, sans-serif;
+  font-family: system-ui, sans-serif;
   font-size: var(--text-md);
   font-weight: 600;
 }
@@ -439,7 +447,7 @@ body {
 .panel-empty h3 {
   margin: 0 0 var(--space-2);
   color: var(--color-text-primary);
-  font-family: "Bricolage Grotesque", "General Sans", system-ui, sans-serif;
+  font-family: system-ui, sans-serif;
   font-weight: 600;
   font-size: var(--text-md);
 }
@@ -465,10 +473,30 @@ body {
 .callout .icon {
   margin-top: 0.1rem;
 }
+/* Elevated above a plain .callout — this is the NFR2 trust surface (drift
+ * review, reconstructed-brief, equivalent-not-identical, local-first), and its
+ * weight should read as load-bearing, not a routine tip. Thicker accent rail +
+ * an eyebrow label (::before, CSS-only so every existing call site picks it up
+ * with no JSX change) + a semibold body distinguish it from a generic .callout. */
 .callout-honesty {
-  border-color: rgba(var(--theme-primary-rgb), 0.3);
-  background: rgba(var(--theme-primary-rgb), 0.08);
+  border-color: rgba(var(--theme-primary-rgb), 0.4);
+  border-left: 3px solid var(--theme-primary);
+  padding-left: calc(var(--space-3) - 2px);
+  background: rgba(var(--theme-primary-rgb), 0.1);
   color: var(--theme-primary-light);
+  font-weight: 600;
+  flex-wrap: wrap;
+  box-shadow: 0 0 16px rgba(var(--theme-primary-rgb), 0.12);
+}
+.callout-honesty::before {
+  content: "Honesty note";
+  order: -1;
+  flex-basis: 100%;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
 }
 .callout-warning {
   border-color: rgba(var(--color-warning-rgb), 0.3);
@@ -1394,15 +1422,23 @@ body {
   line-height: 1.4;
 }
 
-.app-title {
-  justify-content: flex-start;
-  gap: var(--space-2);
-}
 .accent-switcher {
   margin-left: auto;
   display: inline-flex;
   gap: var(--space-1);
   align-items: center;
+}
+/* One functional toolbar (⌘K / replay tour / doctor), visually set apart from
+   the cosmetic accent switcher so the two don't read as one undifferentiated
+   row of icon buttons. */
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--surface-raised);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
 }
 .accent-dot {
   width: 1.5rem;
@@ -1459,13 +1495,19 @@ body {
   background: rgba(3, 7, 18, 0.6);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 14vh;
   animation: fade-in 0.15s ease-in-out both;
 }
+/* Self-positioned (not flex-centered inside .palette-overlay): Radix renders
+   Dialog.Overlay and Dialog.Content as PORTAL SIBLINGS, not parent/child, so a
+   layout that relied on .palette being a flex child of .palette-overlay never
+   centered it — it fell into normal document flow at the end of <body> instead.
+   Same self-fixed-positioning pattern as .doctor-modal below. */
 .palette {
+  position: fixed;
+  top: 14vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
   width: min(34rem, 92vw);
   background: rgba(17, 24, 39, 0.92);
   backdrop-filter: var(--glass-blur);

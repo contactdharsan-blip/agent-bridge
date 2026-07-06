@@ -2,6 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { TOUR_STEPS } from "../data/tourSteps";
+import { prefersReducedMotion } from "../state/motion";
 import { Icon } from "./Icon";
 
 // Must exceed App.tsx's tab-switch transition (0.16s, App.tsx:209) so the
@@ -74,10 +75,8 @@ export function OnboardingTour({
       setCardSide(r.left + r.width / 2 > window.innerWidth / 2 ? "left" : "right");
       // Gate the native smooth scroll on the OS reduced-motion preference —
       // MotionConfig (framer-only) and the CSS prefers-reduced-motion block
-      // can't reach a JS scrollIntoView. Optional-chain matchMedia so jsdom
-      // (npm test) doesn't throw.
-      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+      // can't reach a JS scrollIntoView.
+      el.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
     };
 
     // After a tab switch, wait for the target to mount before highlighting it;

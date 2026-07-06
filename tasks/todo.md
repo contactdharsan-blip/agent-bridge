@@ -185,6 +185,84 @@ each.
       `cargo clippy --workspace --all-targets` (clean) + `npm run typecheck &&
       npm run build && npm test` (39/39) all green.
 
+## v1.3 — Audit-driven UI/UX rework (2026-07-03)
+
+Full-app UI/UX audit run via a fork (read-only, `agent-bridge-ui-prd.md` +
+`agent-bridge-prd.md` NFR2 vs every file in `src/`). Verdict per dimension:
+aesthetic coherence MIXED, UX flow MIXED, honesty-by-design prominence MIXED
+(most important finding — the visual weight doesn't match how load-bearing NFR2
+says these signals are), IA MIXED, consistency MIXED. Full findings kept in this
+session's transcript, not re-copied here — this section is the fix list.
+Frontend-only, no backend/contract change. Verify each batch with
+`npm run typecheck && npm run build && npm test`.
+
+Explicit assumption (stated, not asked, per `/goal` autonomous-directive + Ask-Once
+rule): font-honesty fix (item 4) drops the undeclared `"General Sans"`/
+`"Bricolage Grotesque"` names rather than self-hosting real font files — the
+higher-value spend this pass is the honesty-affordance visual weight (items 1-2),
+not marginal typographic identity, and self-hosting adds a real asset-pipeline
+dependency for a "safe polish" item the audit itself ranked lowest-risk/lowest-value.
+
+- [x] **1. Elevate `.callout-honesty`** (App.css) to read as a first-class trust
+      statement, not an FYI — thicker accent border + a small eyebrow label,
+      distinct from generic `.callout`. CSS-only; lifts all 4 existing call sites
+      (DriftWrite inSync/applied, InstructionsPreview fidelityNote, CarryDiff
+      reconstructed-brief, ProfilePanel local-first-note) automatically.
+- [x] **2. New `.badge-honesty` class**, distinct from `.badge-accent` — swap
+      `InstructionsPreview`'s `equivalentNotIdentical` badge onto it so the honesty
+      signal stops sharing visual vocabulary with decorative accent tags (e.g.
+      GapFillItem's "for you", which stays `badge-accent` — it's not an honesty flag).
+- [x] **3. Dedupe the `.app-title` CSS rule** (App.css has it declared twice).
+- [x] **4. Font honesty** — drop the two undeclared custom font-family names,
+      replace with an honest curated system stack (see assumption above).
+- [x] **5. ServerEditor empty state** → swap the bare `<p className="card-sub">`
+      for `<PanelEmpty>` (icon="config"), matching every other panel's empty-state
+      investment (UI-NFR5 says every panel designs all four states, not a default).
+- [x] **6. Toast auto-dismiss by kind** (`state/toast.tsx`) — errors get a longer
+      window than success/info so a failure doesn't vanish as fast as a confirmation.
+- [x] **7. Group header icon buttons** (App.tsx) — visually separate the 3
+      functional buttons (⌘K, replay tour, doctor) from the cosmetic accent switcher.
+- [x] **8. Shared `prefersReducedMotion()` helper** — dedupe the identical
+      `matchMedia` check in `ThreadView.tsx` and `OnboardingTour.tsx`.
+- [x] **9. Command palette IA gap** (UI-NFR4 names "start a handoff"/"generate a
+      continuity report" as primary actions the palette must reach — neither
+      existed by name) — relabel `tab-handoff` → "Start a handoff", `tab-profile`
+      → "Run a profile", add a new "Generate a continuity report" entry routing to
+      the same real Profile tab. No fabricated capability, routes to existing tabs only.
+- [x] **10. Align InstructionsPreview's overwrite-gate vocabulary with
+      DriftWrite's** — same "Drift review" heading/icon, "has drifted from the
+      projection" wording instead of "already exists on disk and differs". Copy/
+      header only — the invalidation-on-input-change state logic in both
+      components is untouched (this exact pair has been the site of two real
+      honesty-gate bugs per lessons.md; audit explicitly flagged full mechanical
+      unification as needs-care, so doing the safe subset only).
+
+- [x] **11. (Found during visual verification, not in the original audit) Command
+      palette wasn't actually centered as a modal** — `.palette` relied on being a
+      flex child of `.palette-overlay` for centering, but Radix renders
+      `Dialog.Overlay`/`Dialog.Content` as portal *siblings*, not parent/child, so
+      it fell into normal document flow at the end of `<body>` instead of
+      appearing as a centered dialog. Fixed by self-positioning `.palette`
+      (`position: fixed; top: 14vh; left: 50%; transform: translateX(-50%)`),
+      the same pattern `.doctor-modal` already used correctly. `DoctorPanel` and
+      `OnboardingTour` were checked and don't have this bug (both already
+      self-position their content). Caught only by an actual rendered screenshot
+      — typecheck/build/test all stayed green throughout since none of them
+      render layout.
+
+Verified 2026-07-03: `npm run typecheck && npm run build && npm test` (39/39)
+green after every batch. Visual pass via headless Chromium (cached
+`~/Library/Caches/ms-playwright/chromium-1208` + npx-cached Playwright package,
+per the existing lessons.md recipe) against `npm run dev` — confirmed the
+elevated honesty callout, the relabeled+new palette commands, the grouped header
+buttons, and the ServerEditor empty state all render as intended, and caught +
+fixed finding #11 above.
+
+Deliberately NOT touched: OnboardingTour/OnboardingCard sequential-retelling
+overlap (audit found no bug, just redundant teaching — not worth the risk of
+touching hardened tour code for a non-bug) and full DriftWrite/InstructionsPreview
+mechanical unification (flagged high-risk by the audit; item 10 above is the safe slice).
+
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.
 - JSON Schema on every Profile Skill output — validate + reject at the boundary (M5b).

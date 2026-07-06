@@ -18,7 +18,13 @@ interface ToastApi {
 }
 
 const Ctx = createContext<ToastApi | null>(null);
-const AUTO_DISMISS_MS = 4200;
+// Errors linger longer than a success/info confirmation — a failure shouldn't
+// vanish as fast as a routine acknowledgement.
+const AUTO_DISMISS_MS: Record<ToastKind, number> = {
+  success: 4200,
+  info: 4200,
+  error: 8000,
+};
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -32,7 +38,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (kind: ToastKind, text: string) => {
       const id = nextId.current++;
       setToasts((prev) => [...prev, { id, kind, text }]);
-      setTimeout(() => dismiss(id), AUTO_DISMISS_MS);
+      setTimeout(() => dismiss(id), AUTO_DISMISS_MS[kind]);
     },
     [dismiss],
   );

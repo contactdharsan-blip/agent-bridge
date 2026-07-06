@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { prefersReducedMotion } from "../state/motion";
 import type { ChatMessage } from "../types";
 import { MessageBubble } from "./MessageBubble";
 
@@ -8,8 +9,7 @@ export function ThreadView({ messages, busy }: { messages: ChatMessage[]; busy?:
   // Keep the latest message in view as text streams in — but honor reduced-motion,
   // since this fires on every streamed delta (UI-NFR6).
   useEffect(() => {
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    endRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
+    endRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }, [messages, busy]);
 
   return (

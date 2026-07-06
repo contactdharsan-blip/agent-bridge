@@ -167,8 +167,12 @@ export default function App() {
     const cmds: Command[] = [
       { id: "tab-run", label: "Go to Run", hint: "1", run: () => setTab("run") },
       { id: "tab-config", label: "Go to Config", hint: "2", run: () => setTab("config") },
-      { id: "tab-handoff", label: "Go to Handoff", hint: "3", run: () => setTab("handoff") },
-      { id: "tab-profile", label: "Go to Profile", hint: "4", run: () => setTab("profile") },
+      // Labeled as the task the PRD names (UI-NFR4: "start a handoff", "run a
+      // profile", "generate a continuity report"), not just the tab name — same
+      // real navigation, found under the vocabulary a user actually thinks in.
+      { id: "tab-handoff", label: "Start a handoff", hint: "3", run: () => setTab("handoff") },
+      { id: "tab-profile", label: "Run a profile", hint: "4", run: () => setTab("profile") },
+      { id: "continuity-report", label: "Generate a continuity report", run: () => setTab("profile") },
       { id: "replay-tour", label: "Replay walkthrough", run: () => setTourOpen(true) },
       { id: "run-doctor", label: "Run doctor diagnostics", run: () => setDoctorOpen(true) },
     ];
@@ -245,84 +249,89 @@ export default function App() {
           <span className="app-mark" aria-hidden="true" />
           <h1>Agent Bridge</h1>
           <AccentSwitcher accent={accent} onChange={setAccent} />
-          <Tooltip.Provider delayDuration={400}>
-            <Tooltip.Root>
-              <Tooltip.Trigger asChild>
-                <button
-                  className="palette-trigger"
-                  onClick={() => setPaletteOpen(true)}
-                  aria-label="Open command palette"
-                >
-                  <kbd className="kbd">⌘K</kbd>
-                </button>
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content asChild side="bottom" sideOffset={6}>
-                  <motion.div
-                    className="tooltip-content"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.12 }}
+          {/* Grouped as one functional toolbar, visually distinct from the
+              cosmetic accent switcher above — three unrelated icon buttons in a
+              row otherwise read as one undifferentiated cluster. */}
+          <div className="header-actions">
+            <Tooltip.Provider delayDuration={400}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    className="palette-trigger"
+                    onClick={() => setPaletteOpen(true)}
+                    aria-label="Open command palette"
                   >
-                    Command palette
-                  </motion.div>
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-          </Tooltip.Provider>
-          <Tooltip.Provider delayDuration={400}>
-            <Tooltip.Root>
-              <Tooltip.Trigger asChild>
-                <button
-                  className="palette-trigger"
-                  onClick={() => setTourOpen(true)}
-                  aria-label="Replay walkthrough"
-                >
-                  <Icon name="info" />
-                </button>
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content asChild side="bottom" sideOffset={6}>
-                  <motion.div
-                    className="tooltip-content"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.12 }}
+                    <kbd className="kbd">⌘K</kbd>
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content asChild side="bottom" sideOffset={6}>
+                    <motion.div
+                      className="tooltip-content"
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.12 }}
+                    >
+                      Command palette
+                    </motion.div>
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+            <Tooltip.Provider delayDuration={400}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    className="palette-trigger"
+                    onClick={() => setTourOpen(true)}
+                    aria-label="Replay walkthrough"
                   >
-                    Replay walkthrough
-                  </motion.div>
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-          </Tooltip.Provider>
-          <Tooltip.Provider delayDuration={400}>
-            <Tooltip.Root>
-              <Tooltip.Trigger asChild>
-                <button
-                  className="palette-trigger"
-                  onClick={() => setDoctorOpen(true)}
-                  aria-label="Run doctor diagnostics"
-                >
-                  <Icon name="activity" />
-                </button>
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content asChild side="bottom" sideOffset={6}>
-                  <motion.div
-                    className="tooltip-content"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.12 }}
+                    <Icon name="info" />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content asChild side="bottom" sideOffset={6}>
+                    <motion.div
+                      className="tooltip-content"
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.12 }}
+                    >
+                      Replay walkthrough
+                    </motion.div>
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+            <Tooltip.Provider delayDuration={400}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    className="palette-trigger"
+                    onClick={() => setDoctorOpen(true)}
+                    aria-label="Run doctor diagnostics"
                   >
-                    Doctor diagnostics
-                  </motion.div>
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-          </Tooltip.Provider>
+                    <Icon name="activity" />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content asChild side="bottom" sideOffset={6}>
+                    <motion.div
+                      className="tooltip-content"
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.12 }}
+                    >
+                      Doctor diagnostics
+                    </motion.div>
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          </div>
         </div>
         <AgentPicker
           agents={agents}

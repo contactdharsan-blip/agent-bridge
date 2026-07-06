@@ -96,7 +96,7 @@ export function InstructionsPreview({
             </span>
             <span className="preview-head-actions">
               {data.equivalentNotIdentical && (
-                <span className="badge badge-accent">
+                <span className="badge badge-honesty">
                   <Icon name="info" /> equivalent, not identical
                 </span>
               )}
@@ -119,11 +119,14 @@ export function InstructionsPreview({
 
           {overwrite && overwrite.path === data.path && (
             <div className="drift-write">
+              <h4 className="card-title">
+                <Icon name="shield" /> Drift review
+              </h4>
               <div className="callout callout-warning">
                 <Icon name="alert" />
                 <span>
-                  <strong>{overwrite.path}</strong> already exists on disk and differs — writing
-                  will overwrite your hand-edited file. Review its current contents below before
+                  <strong>{overwrite.path}</strong> has drifted from the projection — writing will
+                  overwrite your hand-edited file. Review its current contents below before
                   overwriting.
                 </span>
               </div>

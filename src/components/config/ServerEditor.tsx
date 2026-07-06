@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ConfigValue, EnvVar, McpTransport } from "../../engineTypes";
 import { useCanonical } from "../../state/canonical";
 import { Icon } from "../Icon";
+import { PanelEmpty } from "../PanelEmpty";
 
 // The canonical editor (UI-FR9): a structured form over the canonical entities, so
 // the user edits the source of truth and can never touch a native artifact. Covers
@@ -165,9 +166,11 @@ export function ServerEditor() {
       </div>
 
       {store.servers.length === 0 && (
-        <p className="card-sub">
-          No servers yet. Add one — it's projected into each agent's native format below.
-        </p>
+        <PanelEmpty
+          icon="config"
+          title="No servers yet"
+          hint="Add one — it's projected into each agent's native format below."
+        />
       )}
 
       {store.servers.map((server, index) => (
