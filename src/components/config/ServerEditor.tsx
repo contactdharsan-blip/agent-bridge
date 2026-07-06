@@ -225,6 +225,21 @@ export function ServerEditor() {
           onChange={(e) => store.setInstructions(e.target.value)}
         />
       </label>
+
+      {/* AGENTS.md is a full canonical entity (passed through verbatim by the
+          projection engine) — without this field it was persisted and projected
+          but unreachable from the UI. */}
+      <label className="field instructions-field">
+        <span className="card-title">
+          <Icon name="config" /> AGENTS.md (canonical)
+        </span>
+        <textarea
+          rows={5}
+          placeholder="AGENTS.md contents — passed through verbatim to agents that read it."
+          value={store.agentsMd}
+          onChange={(e) => store.setAgentsMd(e.target.value)}
+        />
+      </label>
     </div>
   );
 }

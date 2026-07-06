@@ -158,7 +158,14 @@ export function useAgentStream(): AgentStream {
       if (!session) return;
       setMessages((prev) => [...prev, { id: newId(), role: "user", text }]);
       setTurnActive(true);
-      await ipc.sendPrompt(session, text);
+      try {
+        await ipc.sendPrompt(session, text);
+      } catch (e) {
+        // Without this, a rejected send left turnActive stuck true forever —
+        // composer frozen at "input paused" with no visible cause.
+        setTurnActive(false);
+        pushSystem(setMessages, `Couldn't send the prompt: ${String(e)}`);
+      }
     },
     [session],
   );
@@ -189,7 +196,18 @@ export function useAgentStream(): AgentStream {
       if (!pendingEdit) return;
       const { requestId, path } = pendingEdit;
       setPendingEdit(null);
-      await ipc.resolvePermission(requestId, decision);
+      try {
+        await ipc.resolvePermission(requestId, decision);
+      } catch (e) {
+        // The edit was cleared optimistically; without this the user had no way
+        // to tell their Accept/Reject never reached the agent (NFR2: report the
+        // uncertainty honestly rather than implying it applied).
+        pushSystem(
+          setMessages,
+          `Couldn't deliver your ${decision === "accept" ? "accept" : "reject"} for ${path} — the agent may not have applied it (${String(e)}).`,
+        );
+        return;
+      }
       pushSystem(
         setMessages,
         `${decision === "accept" ? "Applied" : "Rejected"} edit to ${path}`,

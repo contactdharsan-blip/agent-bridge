@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AgentStream } from "../../hooks/useAgentStream";
 import type { ContextSnapshot } from "../../engineTypes";
 import { useCanonical } from "../../state/canonical";
+import { load, save } from "../../state/persist";
 import { useToast } from "../../state/toast";
 import type { AgentInfo } from "../../types";
 import { Icon } from "../Icon";
@@ -12,6 +13,20 @@ import { EditsEditor, StringListEditor, TaskListEditor } from "./snapshotEditors
 // Handoff Bridge panel (UI-FR16–18). Assemble a snapshot from the live session,
 // review the carry-diff, then hand off via a reconstructed brief. Nothing here
 // implies the memory migrated — the switch opens a fresh session primed with a brief.
+
+const DRAFT_KEY = "handoff.draft";
+
+interface HandoffDraft {
+  target: string;
+  workingDirectory: string;
+  openFiles: string[];
+  taskList: { text: string; status: "pending" | "inProgress" | "completed" }[];
+  recentEdits: { file: string; hunkSummary: string }[];
+  decisions: string[];
+  conversationSummary: string;
+  activeMcp: string[];
+  activeSkills: string[];
+}
 export function HandoffPanel({
   stream,
   agents,
@@ -29,17 +44,40 @@ export function HandoffPanel({
   const toast = useToast();
   const source = stream.agentId;
 
-  const [target, setTarget] = useState<string>(() => agents.find((a) => a.id !== source)?.id ?? "");
-  const [workingDirectory, setWorkingDirectory] = useState(cwd);
-  const [openFiles, setOpenFiles] = useState<string[]>([]);
-  const [taskList, setTaskList] = useState<{ text: string; status: "pending" | "inProgress" | "completed" }[]>([]);
-  const [recentEdits, setRecentEdits] = useState<{ file: string; hunkSummary: string }[]>([]);
-  const [decisions, setDecisions] = useState<string[]>([]);
-  const [conversationSummary, setConversationSummary] = useState("");
-  const [activeMcp, setActiveMcp] = useState<string[]>(() =>
-    store.servers.filter((s) => !s.disabled).map((s) => s.name),
+  // The snapshot is the most hand-typed surface in the app, and this panel
+  // unmounts on every tab switch — which the flow actively invites ("seed from
+  // thread", checking the Run thread mid-assembly). Draft-persist every field so
+  // leaving the tab never destroys work; cleared only on a successful switch.
+  const [draft] = useState(() => load<Partial<HandoffDraft>>(DRAFT_KEY, {}));
+  const [target, setTarget] = useState<string>(() =>
+    draft.target && draft.target !== source
+      ? draft.target
+      : (agents.find((a) => a.id !== source)?.id ?? ""),
   );
-  const [activeSkills, setActiveSkills] = useState<string[]>([]);
+  const [workingDirectory, setWorkingDirectory] = useState(draft.workingDirectory ?? cwd);
+  const [openFiles, setOpenFiles] = useState<string[]>(draft.openFiles ?? []);
+  const [taskList, setTaskList] = useState<{ text: string; status: "pending" | "inProgress" | "completed" }[]>(draft.taskList ?? []);
+  const [recentEdits, setRecentEdits] = useState<{ file: string; hunkSummary: string }[]>(draft.recentEdits ?? []);
+  const [decisions, setDecisions] = useState<string[]>(draft.decisions ?? []);
+  const [conversationSummary, setConversationSummary] = useState(draft.conversationSummary ?? "");
+  const [activeMcp, setActiveMcp] = useState<string[]>(
+    () => draft.activeMcp ?? store.servers.filter((s) => !s.disabled).map((s) => s.name),
+  );
+  const [activeSkills, setActiveSkills] = useState<string[]>(draft.activeSkills ?? []);
+
+  useEffect(() => {
+    save<HandoffDraft>(DRAFT_KEY, {
+      target,
+      workingDirectory,
+      openFiles,
+      taskList,
+      recentEdits,
+      decisions,
+      conversationSummary,
+      activeMcp,
+      activeSkills,
+    });
+  }, [target, workingDirectory, openFiles, taskList, recentEdits, decisions, conversationSummary, activeMcp, activeSkills]);
 
   const snapshot = useMemo<ContextSnapshot>(
     () => ({
@@ -101,6 +139,8 @@ export function HandoffPanel({
     try {
       const newCwd = workingDirectory.trim();
       await stream.switchWithBrief(target, newCwd, brief);
+      // The carried draft is spent — next handoff starts fresh.
+      save<Partial<HandoffDraft>>(DRAFT_KEY, {});
       toast.push("success", `Switched to ${target} — brief sent`);
       onSwitched(newCwd);
     } catch (e) {

@@ -40,8 +40,17 @@ const TABS: TabDef[] = [
 
 export default function App() {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [selected, setSelected] = useState<string>("");
-  const [cwd, setCwd] = useState<string>("");
+  // Agent + working dir survive a relaunch — they're the first thing typed every
+  // session, and everything else here (tab, accent, presets, canonical) already
+  // persists. A stale agent id is re-validated against the live list on refresh.
+  const [selected, setSelected] = useState<string>(() => load<string>("settings.agent", ""));
+  const [cwd, setCwd] = useState<string>(() => load<string>("settings.cwd", ""));
+  useEffect(() => {
+    save("settings.agent", selected);
+  }, [selected]);
+  useEffect(() => {
+    save("settings.cwd", cwd);
+  }, [cwd]);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [tab, setTab] = useState<string>(() => load<string>("settings.tab", "run"));
@@ -94,7 +103,11 @@ export default function App() {
       .then((list) => {
         setAgents(list);
         setConnectError(null);
-        setSelected((cur) => cur || list[0]?.id || "");
+        // Keep the user's pick only if it still exists in the registry (it may
+        // be a persisted id from a previous launch); otherwise fall back.
+        setSelected((cur) =>
+          cur && list.some((a) => a.id === cur) ? cur : (list[0]?.id ?? ""),
+        );
       })
       .catch((e) => setConnectError(String(e)));
   }, []);
@@ -222,6 +235,9 @@ export default function App() {
           setPaletteOpen(false);
           return;
         }
+        // Radix closes the doctor dialog on its own Escape — don't ALSO cancel
+        // a live agent turn from a keypress aimed at a diagnostics modal.
+        if (doctorOpen) return;
         if (stream.turnActive) void stream.cancel();
         return;
       }
@@ -239,7 +255,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [paletteOpen, stream, tourOpen]);
+  }, [paletteOpen, doctorOpen, stream, tourOpen]);
 
   return (
     <MotionConfig reducedMotion="user">
