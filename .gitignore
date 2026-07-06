@@ -10,6 +10,16 @@ dist
 # Tauri
 src-tauri/gen
 
+# Vendored adapter runtime (NFR4) — fetched by scripts/vendor-adapters.sh,
+# not committed (binaries: a portable Node runtime + npm packages, ~150MB+).
+# CI/packaging runs the script before `tauri build`; dev mode falls back to
+# the system npx path when this is absent. .gitkeep stays tracked: tauri.conf
+# .json's bundle.resources glob (vendor/**/*) is validated at cargo-build
+# time and hard-errors on zero matches, so the directory must never be fully
+# empty even before the vendor script has run.
+src-tauri/vendor/*
+!src-tauri/vendor/.gitkeep
+
 # Env / secrets
 .env
 .env.*

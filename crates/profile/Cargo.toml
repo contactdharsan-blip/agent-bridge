@@ -1,0 +1,12 @@
+[package]
+name = "profile"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+canonical = { path = "../canonical" }
+projection = { path = "../projection" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

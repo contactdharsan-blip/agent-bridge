@@ -18,7 +18,7 @@ pub use contract::{
 };
 pub use fake::FakeAcpHost;
 pub use host::AcpHostHandle;
-pub use registry::{adapter_for, known_agents, AgentInfo};
+pub use registry::{adapter_for, known_agents, AgentInfo, AuthStatus};
 
 /// Small helpers shared by unit tests across modules.
 #[cfg(test)]

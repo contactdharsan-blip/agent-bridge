@@ -1,0 +1,51 @@
+name: Desktop build
+
+# Produces the native installer for each desktop platform on its own runner —
+# Tauri's bundlers (NSIS on Windows, dmg on macOS) are not reliably
+# cross-compilable, so each OS builds itself rather than cross-building from one
+# host. No secrets/signing configured yet (see tasks/operator-todo.md); these are
+# unsigned dev builds.
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            bundles: dmg
+            artifact-glob: src-tauri/target/release/bundle/dmg/*.dmg
+          - platform: windows-latest
+            bundles: nsis
+            artifact-glob: src-tauri/target/release/bundle/nsis/*.exe
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Vendor adapter runtime + packages (NFR4)
+        shell: bash
+        run: npm run vendor-adapters
+
+      - name: Build ${{ matrix.bundles }} bundle
+        run: npm run tauri build -- --bundles ${{ matrix.bundles }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-bridge-${{ matrix.platform }}
+          path: ${{ matrix.artifact-glob }}
+          if-no-files-found: error

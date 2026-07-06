@@ -1,0 +1,6 @@
+Tracked placeholder — keep this file even though everything else under
+src-tauri/vendor/ is gitignored. tauri.conf.json's bundle.resources glob
+(vendor/**/*) is validated at cargo-build time (not just real `tauri build`
+packaging), and tauri-build hard-errors if the glob matches zero files. This
+file guarantees at least one match always exists, so `cargo build`/`check`/
+`test` work with or without scripts/vendor-adapters.sh having run.

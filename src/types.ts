@@ -5,11 +5,44 @@
 export type SessionId = string;
 export type Decision = "accept" | "reject";
 
+/** First-class auth state for the per-agent status panel. `byoLogin` = no API
+ * key set, but the agent's own native login (subscription/OAuth) is used — not
+ * an error. `needsLogin`/`error` are runtime states set after a connect attempt. */
+export type AuthStatus = "connected" | "byoLogin" | "needsLogin" | "error";
+
 export interface AgentInfo {
   id: string;
   displayName: string;
   authEnv: string;
   authPresent: boolean;
+  authStatus: AuthStatus;
+}
+
+// ---- Doctor diagnostics (src-tauri/src/doctor.rs, FR32) --------------------
+// Local, never-uploaded health check: Node/npx presence+version, bundled-
+// adapter resolution health, and OS-keychain reachability.
+
+/** One agent's resolved adapter command + auth status, from the same registry
+ * `list_agents`/`start_session` already use — never reimplemented in the UI. */
+export interface AgentDoctorEntry {
+  id: string;
+  displayName: string;
+  resolvedCommand: string;
+  resolvedArgs: string[];
+  authStatus: AuthStatus;
+}
+
+/** `Result<bool, String>` as it crosses the IPC boundary: serde's builtin,
+ * externally-tagged `Result` shape (`{ Ok: T }` / `{ Err: E }`) — capitalized
+ * because it's the standard library's own impl, not one of our
+ * `#[serde(rename_all = "camelCase")]` types. */
+export type KeychainProbe = { Ok: boolean } | { Err: string };
+
+export interface DoctorReport {
+  nodeVersion: string | null;
+  npxVersion: string | null;
+  agents: AgentDoctorEntry[];
+  keychain: KeychainProbe;
 }
 
 /** A stop reason is a camelCase tag, or `{ other: "..." }` for unknown ones. */
@@ -33,6 +66,12 @@ export type AgentEvent =
       oldText: string | null;
       newText: string;
     }
+  | {
+      type: "permissionRequest";
+      session: SessionId;
+      requestId: string;
+      description: string;
+    }
   | { type: "turnEnded"; session: SessionId; stopReason: StopReason }
   | {
       type: "error";
@@ -41,11 +80,15 @@ export type AgentEvent =
       message: string;
     };
 
-/** A rendered chat message in the unified thread. */
+/** A rendered chat message in the unified thread. `thought` is the agent's
+ * reasoning, rendered distinctly from its answer (UI-FR3). */
 export interface ChatMessage {
   id: number;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | "thought";
   text: string;
+  /** Registry id of the emitting agent (assistant messages) — after a handoff
+   * the thread holds two agents' messages, and the bubble label says which. */
+  agent?: string;
 }
 
 /** A pending edit awaiting the user's accept/reject. */
@@ -54,4 +97,11 @@ export interface PendingEdit {
   path: string;
   oldText: string | null;
   newText: string;
+}
+
+/** A pending non-diff permission ask (e.g. a shell-command approval) awaiting
+ * the user's accept/reject — distinct from `PendingEdit` (which renders a diff). */
+export interface PendingPermission {
+  requestId: string;
+  description: string;
 }

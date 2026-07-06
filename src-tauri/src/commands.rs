@@ -7,12 +7,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use acp_host::{
-    adapter_for, known_agents, AcpHost, AcpHostHandle, AgentEvent, AgentInfo, Decision,
-    PermissionReqId, SessionConfig, SessionId,
+    adapter_for, known_agents, AcpHost, AcpHostError, AcpHostHandle, AgentEvent, AgentInfo,
+    Decision, PermissionReqId, SessionConfig, SessionId,
 };
 use tauri::ipc::Channel;
-use tauri::State;
+use tauri::{AppHandle, State};
 use tokio::sync::Mutex;
+
+use crate::vendored_adapters;
 
 /// App-wide state: the one live host (M1/M2 run a single session at a time).
 #[derive(Default)]
@@ -26,16 +28,49 @@ pub fn list_agents() -> Vec<AgentInfo> {
     known_agents()
 }
 
+/// Turn a host start-session failure into a frontend-recognizable message.
+/// Auth-ness is derived from the real error (the typed `Auth` variant if it is
+/// ever reachable, else conservative markers in the adapter's own failure text)
+/// — never invented. On a likely auth failure we prefix `AUTH_REQUIRED:` so the
+/// UI can say "sign in to <agent>" while preserving the raw detail after it.
+fn classify_start_error(e: AcpHostError, agent_id: &str) -> String {
+    let looks_like_auth = matches!(e, AcpHostError::Auth(_)) || {
+        let m = e.to_string().to_lowercase();
+        m.contains("unauthor")
+            || m.contains("not logged in")
+            || m.contains("authentication")
+            || m.contains("login")
+            || m.contains("401")
+            || m.contains("api key")
+    };
+    if looks_like_auth {
+        format!("AUTH_REQUIRED:{agent_id}:{e}")
+    } else {
+        e.to_string()
+    }
+}
+
 /// Spawn the chosen agent's adapter and open one session. Streamed events are
 /// pumped onto `on_event` (a JS-side `Channel`).
 #[tauri::command]
 pub async fn start_session(
+    app: AppHandle,
     state: State<'_, AppState>,
     agent_id: String,
     cwd: String,
     on_event: Channel<AgentEvent>,
 ) -> Result<SessionId, String> {
-    let adapter = adapter_for(&agent_id).ok_or_else(|| format!("unknown agent: {agent_id}"))?;
+    let mut adapter = adapter_for(&agent_id).ok_or_else(|| format!("unknown agent: {agent_id}"))?;
+    // NFR4: prefer a vendored, bundled adapter (no system Node/npx needed)
+    // when scripts/vendor-adapters.sh has populated the resource dir — env
+    // (API keys) stays exactly what the registry already computed; only the
+    // launch command/args are overridden. Silently keeps the npx-based
+    // default whenever vendored resources aren't present (dev builds, or a
+    // platform the vendor script hasn't been run for) — never a hard error.
+    if let Some((command, args)) = vendored_adapters::resolve_vendored(&app, &agent_id) {
+        adapter.command = command;
+        adapter.args = args;
+    }
 
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<AgentEvent>();
     let host = Arc::new(AcpHostHandle::new(tx));
@@ -55,7 +90,7 @@ pub async fn start_session(
             adapter,
         })
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| classify_start_error(e, &agent_id))?;
 
     *state.host.lock().await = Some(host);
     Ok(session)

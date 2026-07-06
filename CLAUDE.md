@@ -2,39 +2,91 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: M1+M2 implemented (vertical slice)
+## Project status: M1–M7 (engine layer) + the post-M7 client surface implemented
 
 The two source-of-truth documents remain binding architecture:
 
-- `agent-bridge-prd.md` — product requirements (what to build, for whom, success metrics).
+- `agent-bridge-prd.md` — product requirements (what to build, for whom, success metrics). §13 is the expanded feature set (FR24–FR50).
 - `agent-bridge-plan.md` — architecture, the two-engine model, milestones, and the vibecoding execution playbook. **Read §0, §1, §6, and §6b before writing any code.**
+- `agent-bridge-ui-prd.md` — the Client Surface (UI/UX) PRD (UI-FR1–28): the four-tab frontend that consumes the 15 wired IPC commands. Now implemented (UI-1…UI-4), including the UI-FR28 onboarding tour.
+- `tasks/todo.md` (engineering backlog) and `tasks/operator-todo.md` (human-only steps: secrets, signing, product decisions).
 
-What exists now (M1: one agent end-to-end; M2: Codex as a config entry):
+What exists now — the 🔴 runtime spine plus the 🟢/🟡 pure engines that are the moat:
 
-- `crates/acp-host/` — 🔴 the ACP transport core, frozen behind the narrow `AcpHost` trait + `AgentEvent` model in `contract.rs`. Built on Zed's `agent-client-protocol` crate (pinned `=1.0.1`). Adapters live in `registry.rs` (Claude/Codex via `npx`). Fully tested offline (unit + a real-subprocess transport test against `src/bin/fake_agent.rs`).
-- `src-tauri/` — Tauri v2 app crate; thin IPC glue (`commands.rs`) bridging the host's event channel to a JS `Channel`.
-- `src/` — React + TypeScript frontend; one agent-agnostic UI (zero per-agent branches).
+- `crates/acp-host/` — 🔴 the ACP transport core, frozen behind the narrow `AcpHost` trait + `AgentEvent` model in `contract.rs`. Built on Zed's `agent-client-protocol` crate (pinned `=1.0.1`). Adapters in `registry.rs` (Claude/Codex via `npx`; Cursor via `cursor-agent`, overridable with `CURSOR_ACP_COMMAND`). Per-agent `AuthStatus`. Tested offline (unit + real-subprocess transport).
+- `crates/canonical/` — 🟢 the single-source-of-truth model. Secrets are *references* (`SecretRef`), never literals.
+- `crates/projection/` — 🟢 the Projection Engine: bidirectional MCP projectors (Claude/Cursor JSON, Codex TOML), instructions ("equivalent, not identical"), skill placement, AGENTS.md pass-through, Cursor 40-tool ceiling, and drift detection. Round-trip identity tests against golden fixtures.
+- `crates/handoff/` — 🟡 the Handoff Bridge: `ContextSnapshot` → an honest "reconstructed brief, not a continued session" opening turn. Deterministic.
+- `crates/profile/` — 🟡 the cross-agent moat: strict `CoderProfile` schema + boundary validator, platform-feature matching, confidence-weighted merge (hand-computed table test), Gap-Filling Engine (equivalent/approximation), Workflow Continuity Report.
+- `crates/secrets/` — 🟡 keychain storage + spawn-time `${VAR}` resolution; the literal token never touches disk (security test asserts it).
+- `skills/profile/` — the authored Profile Skill (`SKILL.md` + JSON Schema + gather script) the Projection Engine deploys into all three agents.
+- `src-tauri/` — Tauri v2 app; `commands.rs` (runtime shell) + `engines.rs` (thin IPC over the pure engines).
+- `src/` — React + TypeScript frontend; one agent-agnostic UI (zero per-agent branches); `ipc.ts` + `engines.ts` are the only IPC chokepoints. Four tabs (`components/` + `components/config|handoff|profile/`): Run shell, Config/Projection, Handoff, Profile/Continuity. Canonical state lives in `state/canonical.tsx` (Context). Styling is the Dark Liquid-Glass design system in `App.css` (CSS tokens as the base layer). Component/animation libraries are now allowed (operator decision 2026-07-01, superseding the earlier zero-dep rule): `framer-motion` for transitions and `@radix-ui/react-*` for accessible primitives (tabs, tooltip, dialog). Rules that still apply: gate all motion through a root `MotionConfig reducedMotion="user"` (never per-component `prefers-reduced-motion` checks); never animate a *blocking* honesty gate (drift review, carry-diff ack) in a way that lets it be skipped, auto-dismissed, or obscured — animate the surface around the gate, not the gate's requirement to be read; keep the hand-authored inline-SVG `Icon` set (no emoji) rather than pulling an icon library — it already covers the app's icon set with no added dependency.
 
 ### Build / lint / test commands
 
 ```bash
-# 🔴 core — hermetic, no API key/network:
-cargo test -p acp-host
-cargo clippy -p acp-host --all-targets
+# Pure engines — hermetic, no API key/network, no Tauri build (disk-cheap):
+cargo test -p canonical -p projection -p handoff -p profile -p secrets
+cargo test -p acp-host                       # 🔴 core: unit + offline transport
+cargo clippy --workspace --all-targets
 
-# Frontend:
-npm install && npm run typecheck && npm run build
+# Frontend (hermetic — no key/network/display, no Tauri build):
+npm install && npm run typecheck && npm run build && npm test
 
-# Desktop app (needs a display + Linux webkit2gtk deps — see README.md):
-npm run tauri dev
+# Tauri app compiles (needs dist/ from `npm run build` first):
+cargo check -p agent-bridge
+npm run tauri dev                            # run it (needs a display + Linux webkit deps)
 
-# Real-adapter gate tests (skip-guarded on the API key):
+# Skip-guarded gates the operator runs (need keys / a real keychain):
 ANTHROPIC_API_KEY=sk-... cargo test -p acp-host --test round_trip -- --ignored
-# Live smoke after any 🔴 change:
+cargo test -p secrets real_keychain_round_trip -- --ignored
 ANTHROPIC_API_KEY=sk-... tests-e2e/smoke.sh claude
 ```
 
-The `acp-host` public API + its tests are **frozen** (plan §6b): change them only via the test-first, run-for-real ritual. `AGENT_BRIDGE_DEBUG_FRAMES=1` logs raw ACP traffic.
+The `acp-host` public API + its transport tests are **frozen** (plan §6b): change them only via the test-first, run-for-real ritual; adding an agent is a `registry.rs` row, not new code. `AGENT_BRIDGE_DEBUG_FRAMES=1` logs raw ACP traffic. The pure engines are 🟢/🟡 — verify by running their tests, not by reading diffs.
+
+### Client surface (built — post-M7 UI milestone)
+The four-tab React UI that *consumes* the wired engine commands is implemented (`agent-bridge-ui-prd.md`, UI-FR1–26): the Run shell (tabs, auth badges, cancel, honest turn-end), the Config/Projection panel (canonical form editor → per-target preview + Cursor tool-ceiling + equivalent-not-identical instructions + **blocking** drift review + secret-binding manager), the Handoff panel (snapshot → blocking carry-diff → reconstructed brief → re-inject), and the Profile/Continuity dashboard (run-via-session → `validate_profile` → merge with per-agent confidence → recommendations + four-bucket continuity + equivalent/approximation gap-fills). Verify with `npm run typecheck && npm run build` (hermetic, disk-cheap — no Tauri build). The honesty affordances (NFR2) are hard UI requirements and are all sourced from real backend fields, never hard-coded copy — do not weaken them.
+
+### Native config I/O, import wizard, permission presets, doctor diagnostics (2026-07-02)
+Closed the gap the line above used to describe. `src-tauri/src/native_config.rs` adds
+`read_native_file`/`write_native_file` — real disk I/O outside the 15 pure-engine
+commands by design (the same fs-plugin-not-needed pattern: hand-written
+`#[tauri::command]`s already have native Rust file access, no Tauri fs plugin
+dependency required), guarded by a two-layer path-traversal check (lexical
+component rejection + ancestor canonicalization + non-dereferencing
+`symlink_metadata` rejection of any symlinked component, including a dangling
+final-component symlink). `DriftWrite.tsx`/`InstructionsPreview.tsx` now read the
+real on-disk file automatically (no more manual-paste `onDisk` textarea) and
+"Apply" actually writes + re-checks drift, with clipboard-copy kept as a fallback.
+FR26's import wizard (`src/state/importConfig.ts`) is a single-click "Import
+existing config" action (OnboardingCard + palette) that reads/parses whatever
+native MCP/instructions files already exist under `cwd` into the canonical store.
+FR31 permission presets (`src/state/permissionPresets.ts`) ship as **2 tiers only**
+(`default` / `acceptEdits`) — `crates/acp-host/src/contract.rs`'s `AgentEvent` has
+exactly one permission-shaped variant (`EditHunk`), so a third "bypass" tier would
+imply a distinction the frozen 🔴 contract doesn't have; adding a real bypass tier
+is a contract change, not an app-layer one. FR32 doctor diagnostics
+(`src-tauri/src/doctor.rs`, `DoctorPanel.tsx`) reports Node/npx version, resolved
+per-agent adapter command + auth status (reusing `registry::adapter_for`/
+`known_agents`, no duplication), and a real OS-keychain reachability probe against
+a dedicated `agent-bridge-doctor` sentinel. All four verified: `cargo test
+--workspace` + `cargo clippy --workspace --all-targets` + `npm run typecheck &&
+npm run build && npm test` green; DOM-level regression pass (Playwright against
+`npm run dev`) confirmed no tour `data-tour-step` targets broke. **Not yet done:**
+a real `npm run tauri dev` click-through (write a file, see it land on disk;
+connect a real agent and trigger an `acceptEdits` auto-apply) — the browser-only
+harness available this session has no real Tauri IPC backend, so anything gated
+behind an actual agent connection (thread, composer, handoff carry-diff) couldn't
+be exercised; the underlying logic is covered by 13 `native_config` + unit tests
+instead.
+
+### What's left (not yet built)
+- Operator/product items in `tasks/operator-todo.md` (signing, marketplace curation, pricing).
+
+### Onboarding tour (UI-FR28, shipped)
+`OnboardingTour.tsx` is a first-launch guided walkthrough (`settings.tourCompleted` in localStorage), replayable anytime via the command palette ("Replay walkthrough") or the header info button. It drives the real tab underneath each step (`onTabChange`) and spotlights the real DOM element via `data-tour-step` attributes — never a mock screenshot. The spotlight box is measured with `getBoundingClientRect` and rendered in the tour's own Radix portal rather than as a class on the target element itself, because the target sits under framer-motion's animated tab panel and glass-card `backdrop-filter`, both of which establish their own stacking contexts that would cap a z-index set directly on it. `OnboardingCard.tsx` (the inline Run-tab checklist) is unchanged and coexists with it — the tour teaches once, the card stays as an ongoing checklist. The Profile Skill itself is now a public repo (`agent-bridge-profile-skill`), wired into `crates/profile/src/gapfill.rs`'s gap-fill recommendation and linked directly from the Profile tab.
 
 ## What this is
 

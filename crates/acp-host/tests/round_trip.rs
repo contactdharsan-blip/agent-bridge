@@ -32,6 +32,16 @@ async fn codex_real_round_trip() {
     real_round_trip("codex", "OPENAI_API_KEY").await;
 }
 
+// M6: the same gate for Cursor — the weakest ACP leg. Needs a working Cursor
+// adapter (set CURSOR_ACP_COMMAND if the default `cursor-agent --acp` isn't it)
+// plus CURSOR_API_KEY. If Cursor's adapter fights you, this stays skipped and
+// the app still ships Claude + Codex — the architecture doesn't depend on it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires a working Cursor ACP adapter + CURSOR_API_KEY + network; run explicitly"]
+async fn cursor_real_round_trip() {
+    real_round_trip("cursor", "CURSOR_API_KEY").await;
+}
+
 /// Drive one real prompt→response→edit→accept→file round-trip for `agent_id`.
 /// Skips (does not fail) when `key_env` is absent.
 async fn real_round_trip(agent_id: &str, key_env: &str) {
@@ -94,6 +104,14 @@ async fn real_round_trip(agent_id: &str, key_env: &str) {
                     panic!("transport error [{kind:?}]: {message}")
                 }
                 AgentEvent::Thought { .. } => {}
+                AgentEvent::PermissionRequest { request_id, .. } => {
+                    // A real agent may ask for a non-diff approval (e.g. a
+                    // shell command) as part of this turn — auto-accept so
+                    // the gate test doesn't stall on it.
+                    host.resolve_permission(&request_id, Decision::Accept)
+                        .await
+                        .unwrap();
+                }
             }
         }
     };
