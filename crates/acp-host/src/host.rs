@@ -385,18 +385,33 @@ async fn handle_permission(
     let sid = SessionId(req.session_id.0.to_string());
     let req_id = translate::permission_req_id(&req.tool_call);
 
-    // Surface the diff hunk (if this permission is an edit) so the UI can render
-    // accept/reject. Non-edit permissions still get a decision channel below.
-    if let Some(ev) = translate::edit_from_permission(&sid, &req.tool_call) {
-        let _ = events.send(ev);
+    // Surface the diff hunk if this permission is an edit; otherwise a generic
+    // PermissionRequest (UI-FR06) — every permission gets exactly one of the
+    // two, never neither, since either shape is how the UI learns this
+    // request-id exists at all and can call resolve_permission on it. Without
+    // this, a non-diff ask (e.g. a shell-command approval) would register a
+    // decision channel below that nothing could ever fill, hanging the
+    // agent's turn forever.
+    match translate::edit_from_permission(&sid, &req.tool_call) {
+        Some(ev) => {
+            let _ = events.send(ev);
+        }
+        None => {
+            let _ = events.send(AgentEvent::PermissionRequest {
+                session: sid.clone(),
+                request_id: req_id.clone(),
+                description: translate::permission_description(&req.tool_call),
+            });
+        }
     }
 
     let (tx, rx) = oneshot::channel::<Decision>();
     pending.lock().unwrap().insert(req_id.clone(), tx);
 
-    // Block this request on the user's choice. The agent is awaiting our reply,
-    // so blocking the dispatch loop here is correct: nothing else can progress
-    // until the edit is resolved.
+    // This runs inside `cx.spawn` (see the registration above), not inline in
+    // the dispatch loop, so awaiting the user's real decision here — which
+    // can take seconds to minutes — doesn't block any other traffic on this
+    // connection.
     let decision = rx.await.unwrap_or(Decision::Reject);
     pending.lock().unwrap().remove(&req_id);
 

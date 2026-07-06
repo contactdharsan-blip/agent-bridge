@@ -66,6 +66,12 @@ export type AgentEvent =
       oldText: string | null;
       newText: string;
     }
+  | {
+      type: "permissionRequest";
+      session: SessionId;
+      requestId: string;
+      description: string;
+    }
   | { type: "turnEnded"; session: SessionId; stopReason: StopReason }
   | {
       type: "error";
@@ -91,4 +97,11 @@ export interface PendingEdit {
   path: string;
   oldText: string | null;
   newText: string;
+}
+
+/** A pending non-diff permission ask (e.g. a shell-command approval) awaiting
+ * the user's accept/reject — distinct from `PendingEdit` (which renders a diff). */
+export interface PendingPermission {
+  requestId: string;
+  description: string;
 }

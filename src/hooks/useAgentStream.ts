@@ -5,7 +5,7 @@
 import { useCallback, useRef, useState } from "react";
 import * as ipc from "../ipc";
 import { getPreset, loadPresets, resolvePresetDecision } from "../state/permissionPresets";
-import type { AgentEvent, ChatMessage, Decision, PendingEdit, SessionId } from "../types";
+import type { AgentEvent, ChatMessage, Decision, PendingEdit, PendingPermission, SessionId } from "../types";
 import { appendToRole, stopNote } from "./streamReducers";
 
 let nextId = 1;
@@ -24,6 +24,9 @@ export interface AgentStream {
   agentId: string | null;
   messages: ChatMessage[];
   pendingEdit: PendingEdit | null;
+  /** A non-diff permission ask (e.g. a shell-command approval) awaiting
+   * accept/reject — UI-FR06's generic counterpart to `pendingEdit`. */
+  pendingPermission: PendingPermission | null;
   turnActive: boolean;
   error: string | null;
   connect: (agentId: string, cwd: string) => Promise<void>;
@@ -31,6 +34,8 @@ export interface AgentStream {
   /** Send a prompt and resolve with the completed assistant text (UI-FR19). */
   promptCapture: (text: string) => Promise<string>;
   resolve: (decision: Decision) => Promise<void>;
+  /** Resolve a pending non-diff permission ask (`pendingPermission`). */
+  resolvePermissionRequest: (decision: Decision) => Promise<void>;
   cancel: () => Promise<void>;
   /** End the current session client-side so the picker re-enables and a fresh
    * agent / session can be started (mirrors switchWithBrief's session swap). */
@@ -45,6 +50,7 @@ export function useAgentStream(): AgentStream {
   const [agentId, setAgentId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingEdit, setPendingEdit] = useState<PendingEdit | null>(null);
+  const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
   const [turnActive, setTurnActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,9 +133,11 @@ export function useAgentStream(): AgentStream {
           // Per-project preset (FR31): "acceptEdits" auto-resolves instead of
           // surfacing the diff, but this is never silent — a system message
           // always records what happened, same as every other honesty
-          // affordance in this app. Only ever auto-resolves EditHunk (a
-          // reviewable file-content diff) — the frozen AgentEvent contract has
-          // no other permission-shaped variant to accidentally auto-approve.
+          // affordance in this app. Deliberately scoped to EditHunk (a
+          // reviewable file-content diff) only — a generic PermissionRequest
+          // (e.g. a shell-command approval) always surfaces below, even under
+          // this preset, so "acceptEdits" can't silently widen into "run
+          // anything" the moment a second permission-shaped event exists.
           const preset = getPreset(loadPresets(), cwdRef.current);
           if (resolvePresetDecision(preset, "editHunk") === "accept") {
             ipc.resolvePermission(event.requestId, "accept").catch((e) => {
@@ -144,6 +152,19 @@ export function useAgentStream(): AgentStream {
               newText: event.newText,
             });
           }
+          break;
+        }
+        case "permissionRequest": {
+          if (turnDisownedRef.current) {
+            ipc.resolvePermission(event.requestId, "reject").catch(() => {});
+            pushSystem(setMessages, `Auto-rejected a request ("${event.description}") that arrived after cancel`);
+            break;
+          }
+          // Always surfaced for manual approve/deny — never auto-resolved by
+          // the acceptEdits preset (see the comment above editHunk's preset
+          // check): this can be an arbitrary action (e.g. running a shell
+          // command), not a reviewable file diff.
+          setPendingPermission({ requestId: event.requestId, description: event.description });
           break;
         }
         case "turnEnded": {
@@ -270,6 +291,28 @@ export function useAgentStream(): AgentStream {
     [pendingEdit],
   );
 
+  const resolvePermissionRequest = useCallback(
+    async (decision: Decision) => {
+      if (!pendingPermission) return;
+      const { requestId, description } = pendingPermission;
+      setPendingPermission(null);
+      try {
+        await ipc.resolvePermission(requestId, decision);
+      } catch (e) {
+        pushSystem(
+          setMessages,
+          `Couldn't deliver your ${decision === "accept" ? "approve" : "deny"} for "${description}" — the agent may not have applied it (${String(e)}).`,
+        );
+        return;
+      }
+      pushSystem(
+        setMessages,
+        `${decision === "accept" ? "Approved" : "Denied"}: ${description}`,
+      );
+    },
+    [pendingPermission],
+  );
+
   const cancel = useCallback(async () => {
     if (!session) return;
     // Disown the turn BEFORE the IPC call so nothing racing in from the
@@ -324,6 +367,7 @@ export function useAgentStream(): AgentStream {
         : [...prev, { id: newId(), role: "system", text: "Session ended — thread kept for reference until the next connect." }],
     );
     setPendingEdit(null);
+    setPendingPermission(null);
     setTurnActive(false);
     setError(null);
   }, [session]);
@@ -331,9 +375,11 @@ export function useAgentStream(): AgentStream {
   const switchWithBrief = useCallback(
     async (targetAgent: string, cwd: string, brief: string) => {
       setError(null);
-      // Drop any unresolved edit from the outgoing agent — its requestId belongs to
-      // the abandoned session, so it must not stay actionable against the new one.
+      // Drop any unresolved edit/permission from the outgoing agent — its
+      // requestId belongs to the abandoned session, so it must not stay
+      // actionable against the new one.
       setPendingEdit(null);
+      setPendingPermission(null);
       // Retire the outgoing session BEFORE the new agent id is stamped: cancel
       // its in-flight turn, drop any half-flushed buffered text (it belongs to
       // the old agent and would otherwise flush into the new thread under the
@@ -402,12 +448,14 @@ export function useAgentStream(): AgentStream {
     agentId,
     messages,
     pendingEdit,
+    pendingPermission,
     turnActive,
     error,
     connect,
     prompt,
     promptCapture,
     resolve,
+    resolvePermissionRequest,
     cancel,
     disconnect,
     switchWithBrief,

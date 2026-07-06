@@ -81,6 +81,11 @@ async fn main() {
                     break false;
                 }
                 Some(AgentEvent::Thought { .. }) => {}
+                Some(AgentEvent::PermissionRequest { request_id, .. }) => {
+                    // Auto-accept so a non-diff ask (e.g. a shell command)
+                    // doesn't stall the smoke run either.
+                    let _ = host.resolve_permission(&request_id, Decision::Accept).await;
+                }
                 None => break false,
             }
         }

@@ -82,6 +82,9 @@ async fn full_vertical_slice_against_fake_agent() {
                 panic!("unexpected transport error [{kind:?}]: {message}")
             }
             AgentEvent::Thought { .. } => {}
+            AgentEvent::PermissionRequest { .. } => {
+                panic!("this fake agent scenario only asks for a diff-shaped edit")
+            }
         }
     }
 
@@ -239,6 +242,79 @@ async fn cancel_stops_an_in_flight_turn_via_real_notification() {
         "the turn must end via the agent's own Cancelled response to session/cancel"
     );
     assert!(!outfile.exists(), "a cancelled turn must never apply its pending edit");
+
+    host.shutdown().await.unwrap();
+}
+
+/// Proves the UI-FR06 fix: a non-diff permission ask (e.g. a shell-command
+/// approval) must surface as `AgentEvent::PermissionRequest` — not silently
+/// register a decision channel nothing tells the UI about — and must be
+/// resolvable the same way an `EditHunk` is, ending the turn instead of
+/// hanging the agent forever.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn non_diff_permission_surfaces_and_resolves() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let (tx, mut rx) = mpsc::unbounded_channel::<AgentEvent>();
+    let host = AcpHostHandle::new(tx);
+
+    let cfg = SessionConfig {
+        cwd: dir.path().to_path_buf(),
+        adapter: AdapterSpec {
+            command: FAKE_AGENT.to_string(),
+            args: vec![],
+            env: vec![("FAKE_AGENT_NONDIFF_PERMISSION".to_string(), "1".to_string())],
+        },
+    };
+
+    let session = timeout(STEP_TIMEOUT, host.start_session(cfg))
+        .await
+        .expect("start_session timed out")
+        .expect("start_session failed");
+    host.send_prompt(&session, "run the command".into())
+        .await
+        .unwrap();
+
+    let request_id = loop {
+        let ev = timeout(STEP_TIMEOUT, rx.recv())
+            .await
+            .expect("timed out waiting for the permission request — it never surfaced")
+            .expect("event channel closed");
+        match ev {
+            AgentEvent::PermissionRequest { description, request_id, .. } => {
+                assert_eq!(description, "Run `echo hi`");
+                break request_id;
+            }
+            AgentEvent::EditHunk { .. } => {
+                panic!("a non-diff permission must not surface as an EditHunk")
+            }
+            AgentEvent::Error { kind, message, .. } => {
+                panic!("unexpected error [{kind:?}]: {message}")
+            }
+            _ => {}
+        }
+    };
+
+    host.resolve_permission(&request_id, Decision::Accept)
+        .await
+        .unwrap();
+
+    loop {
+        let ev = timeout(STEP_TIMEOUT, rx.recv())
+            .await
+            .expect("resolving the permission did not end the turn — it's still hanging")
+            .expect("event channel closed");
+        match ev {
+            AgentEvent::TurnEnded { stop_reason, .. } => {
+                assert_eq!(stop_reason, acp_host::StopReason::EndTurn);
+                break;
+            }
+            AgentEvent::Error { kind, message, .. } => {
+                panic!("unexpected error [{kind:?}]: {message}")
+            }
+            _ => {}
+        }
+    }
 
     host.shutdown().await.unwrap();
 }

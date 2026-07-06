@@ -104,6 +104,14 @@ async fn real_round_trip(agent_id: &str, key_env: &str) {
                     panic!("transport error [{kind:?}]: {message}")
                 }
                 AgentEvent::Thought { .. } => {}
+                AgentEvent::PermissionRequest { request_id, .. } => {
+                    // A real agent may ask for a non-diff approval (e.g. a
+                    // shell command) as part of this turn — auto-accept so
+                    // the gate test doesn't stall on it.
+                    host.resolve_permission(&request_id, Decision::Accept)
+                        .await
+                        .unwrap();
+                }
             }
         }
     };

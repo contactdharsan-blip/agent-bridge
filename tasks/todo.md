@@ -474,11 +474,24 @@ worst-first.
       Expected to stay this way until FR44 (v1.1, marketplace index) is scoped.
 
 ### Undocumented UI gaps (found by the UI-FR pass, not previously in todo.md)
-- [ ] **UI-FR06 — non-diff permission requests silently hang.** Only diff-shaped
-      ACP permission requests reach the frontend at all (`crates/acp-host/src/translate.rs:62-75`
-      `edit_from_permission` returns `None` for anything else, e.g. a bash-exec
-      approval) — `host.rs:313-346`'s `handle_permission` then has nothing to
-      surface, so the request is never resolved, server-side, forever.
+- [x] **UI-FR06 — non-diff permission requests silently hang.** FIXED (2026-07-06).
+      Added `AgentEvent::PermissionRequest { session, request_id, description }` —
+      the frozen contract's second permission-shaped variant, alongside `EditHunk`.
+      `translate::permission_description` builds a human-readable description
+      (the tool call's own `title`, else its `kind`, else a generic fallback —
+      never empty); `host.rs`'s `handle_permission` now emits exactly one of
+      `EditHunk`/`PermissionRequest` for every permission ask, never neither.
+      Frontend: new `PendingPermission` type, `pendingPermission` state,
+      `resolvePermissionRequest` action, and a `PermissionAsk.tsx` component
+      (reuses `DiffHunk`'s chrome). Deliberately NOT auto-resolved by the FR31
+      "acceptEdits" preset — that preset's scope stays "file edits only";
+      widening it to arbitrary non-diff actions (e.g. shell commands) would be
+      a real security-relevant behavior change, not a naming detail. New
+      offline test `non_diff_permission_surfaces_and_resolves` (fake_agent gains
+      `FAKE_AGENT_NONDIFF_PERMISSION`) proves the ask surfaces and resolves
+      instead of hanging. Verified: `cargo test --workspace` + `cargo clippy
+      --workspace --all-targets` + `npm run typecheck && npm run build && npm
+      test` (70/70) all green.
 - [ ] **UI-FR08 — carry-diff gate has a bypass.** The header `AgentPicker`'s
       Disconnect+reconnect changes the active agent directly, skipping the
       Handoff panel's carry-diff entirely — a second, ungated switch path

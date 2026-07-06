@@ -79,6 +79,23 @@ pub fn permission_req_id(tool_call: &ToolCallUpdate) -> PermissionReqId {
     PermissionReqId(tool_call.tool_call_id.0.to_string())
 }
 
+/// A human-readable description for a non-diff permission ask (a shell
+/// command approval, etc.) — the fallback [`edit_from_permission`] doesn't
+/// cover. Prefers the tool call's own title; falls back to its coarse kind;
+/// never empty, so [`AgentEvent::PermissionRequest`] always has something for
+/// the UI to show instead of a bare "approve?".
+pub fn permission_description(tool_call: &ToolCallUpdate) -> String {
+    if let Some(title) = &tool_call.fields.title {
+        if !title.trim().is_empty() {
+            return title.clone();
+        }
+    }
+    match tool_call.fields.kind {
+        Some(kind) => format!("{kind:?} — approve this action?"),
+        None => "Approve this action?".to_string(),
+    }
+}
+
 /// Choose which permission option to select for the user's decision.
 ///
 /// Accept prefers an allow-once option (never silently "allow always"); reject
@@ -186,6 +203,30 @@ mod tests {
     fn non_diff_permission_yields_no_hunk() {
         let tc = ToolCallUpdate::new("tc-2", ToolCallUpdateFields::new());
         assert!(edit_from_permission(&sid(), &tc).is_none());
+    }
+
+    #[test]
+    fn permission_description_prefers_the_tool_calls_own_title() {
+        let tc = ToolCallUpdate::new(
+            "tc-3",
+            ToolCallUpdateFields::new().title("Run `rm -rf /tmp/scratch`"),
+        );
+        assert_eq!(permission_description(&tc), "Run `rm -rf /tmp/scratch`");
+    }
+
+    #[test]
+    fn permission_description_falls_back_to_kind_when_title_is_blank() {
+        let tc = ToolCallUpdate::new(
+            "tc-4",
+            ToolCallUpdateFields::new().title("").kind(agent_client_protocol::schema::v1::ToolKind::Execute),
+        );
+        assert_eq!(permission_description(&tc), "Execute — approve this action?");
+    }
+
+    #[test]
+    fn permission_description_never_empty_with_nothing_to_go_on() {
+        let tc = ToolCallUpdate::new("tc-5", ToolCallUpdateFields::new());
+        assert_eq!(permission_description(&tc), "Approve this action?");
     }
 
     #[test]

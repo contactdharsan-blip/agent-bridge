@@ -5,6 +5,7 @@ import type { AgentInfo } from "../types";
 import { DiffHunk } from "./DiffHunk";
 import { Icon } from "./Icon";
 import { PanelEmpty } from "./PanelEmpty";
+import { PermissionAsk } from "./PermissionAsk";
 import { PromptInput } from "./PromptInput";
 import { ThreadView } from "./ThreadView";
 
@@ -25,13 +26,16 @@ export function RunView({ stream, agents }: { stream: AgentStream; agents?: Agen
     );
   }
 
-  const composerDisabled = stream.turnActive || stream.pendingEdit !== null;
-  // The two paused states ask for opposite behavior (wait vs act) — say which.
+  const composerDisabled =
+    stream.turnActive || stream.pendingEdit !== null || stream.pendingPermission !== null;
+  // The three paused states ask for different behavior (wait vs act) — say which.
   const pausedReason = stream.pendingEdit
     ? "Review the pending edit above — accept or reject it to continue."
-    : stream.turnActive
-      ? "The agent is responding — Stop interrupts it."
-      : undefined;
+    : stream.pendingPermission
+      ? "The agent is waiting for approval above — approve or deny it to continue."
+      : stream.turnActive
+        ? "The agent is responding — Stop interrupts it."
+        : undefined;
   const agentName = (id: string) => agents?.find((a) => a.id === id)?.displayName ?? id;
 
   return (
@@ -48,6 +52,16 @@ export function RunView({ stream, agents }: { stream: AgentStream; agents?: Agen
             transition={FADE}
           >
             <DiffHunk edit={stream.pendingEdit} onResolve={stream.resolve} />
+          </motion.div>
+        )}
+        {stream.pendingPermission && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={FADE}
+          >
+            <PermissionAsk permission={stream.pendingPermission} onResolve={stream.resolvePermissionRequest} />
           </motion.div>
         )}
       </AnimatePresence>

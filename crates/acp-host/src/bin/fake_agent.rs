@@ -10,6 +10,9 @@
 //! Behaviour is controlled by env vars set by the test:
 //! - `FAKE_AGENT_OUTFILE` — absolute path the "edit" writes to (on accept).
 //! - `FAKE_AGENT_TEXT` — the file's contents / the diff's new text.
+//! - `FAKE_AGENT_NONDIFF_PERMISSION` — if set, the permission ask carries no
+//!   diff content (a title + kind only, like a shell-command approval), to
+//!   exercise the non-EditHunk `PermissionRequest` path (UI-FR06).
 //! - `FAKE_AGENT_DEBUG_LOG` — optional path to append lifecycle trace lines to
 //!   (the subprocess's stderr is piped and consumed internally by the SDK, so
 //!   it never reaches the test's terminal — this is the only way to observe
@@ -22,7 +25,7 @@ use agent_client_protocol::schema::v1::{
     InitializeResponse, NewSessionRequest, NewSessionResponse, PermissionOption,
     PermissionOptionKind, PromptRequest, PromptResponse, RequestPermissionOutcome,
     RequestPermissionRequest, SessionNotification, SessionUpdate, StopReason, TextContent,
-    ToolCallContent, ToolCallUpdate, ToolCallUpdateFields,
+    ToolCallContent, ToolCallUpdate, ToolCallUpdateFields, ToolKind,
 };
 use agent_client_protocol::{Agent, Client, ConnectionTo, Responder, Result, Stdio};
 use tokio::sync::Notify;
@@ -91,14 +94,25 @@ async fn main() -> Result<()> {
                     ))),
                 ))?;
 
-                // 2. Request permission for an edit (a file diff).
-                let tool_call = ToolCallUpdate::new(
-                    "edit-1",
-                    ToolCallUpdateFields::new().content(vec![ToolCallContent::Diff(Diff::new(
-                        outfile.clone(),
-                        text.clone(),
-                    ))]),
-                );
+                // 2. Request permission — a file diff, or (for the UI-FR06
+                //    regression test) a non-diff ask like a shell-command
+                //    approval, carrying only a title/kind and no content.
+                let tool_call = if std::env::var("FAKE_AGENT_NONDIFF_PERMISSION").is_ok() {
+                    ToolCallUpdate::new(
+                        "exec-1",
+                        ToolCallUpdateFields::new()
+                            .title("Run `echo hi`")
+                            .kind(ToolKind::Execute),
+                    )
+                } else {
+                    ToolCallUpdate::new(
+                        "edit-1",
+                        ToolCallUpdateFields::new().content(vec![ToolCallContent::Diff(Diff::new(
+                            outfile.clone(),
+                            text.clone(),
+                        ))]),
+                    )
+                };
                 let options = vec![
                     PermissionOption::new(ALLOW_ID, "Allow", PermissionOptionKind::AllowOnce),
                     PermissionOption::new("reject", "Reject", PermissionOptionKind::RejectOnce),

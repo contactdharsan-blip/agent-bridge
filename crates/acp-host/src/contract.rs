@@ -121,6 +121,22 @@ pub enum AgentEvent {
         /// New content after the edit.
         new_text: String,
     },
+    /// A non-file-edit permission ask (e.g. a shell-command approval) awaiting
+    /// accept/reject. [`EditHunk`](AgentEvent::EditHunk) covers diff-shaped
+    /// asks; every OTHER permission request also needs exactly one of these
+    /// two events — the agent blocks on a decision either way, and a
+    /// permission with neither surfaced means the request can never be
+    /// resolved from the UI, hanging the agent's turn forever (UI-FR06).
+    PermissionRequest {
+        /// Session this request belongs to.
+        session: SessionId,
+        /// Resolve this id via [`AcpHost::resolve_permission`].
+        request_id: PermissionReqId,
+        /// Human-readable description of what's being asked (the tool call's
+        /// own title when the agent provided one, else a coarse fallback —
+        /// never empty, so the UI always has something to show).
+        description: String,
+    },
     /// The current prompt turn ended.
     TurnEnded {
         /// Session whose turn ended.
