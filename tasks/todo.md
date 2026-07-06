@@ -425,6 +425,36 @@ FR31's 2-of-3 tiers, the marketplace-index stub) are all correctly
 operator-only or already-deferred — see "Confirmed non-issues" at the end of
 this section and `tasks/operator-todo.md`.
 
+**Second pass, full FR1-50 + UI-FR1-34 re-sweep (2026-07-06, same `/goal`
+run, prompted by a Stop-hook rejection of the first closure as insufficient):**
+read every FR/UI-FR in both PRDs against the actual code, not just the v1.7
+audit's own prior findings. Found and fixed two more real gaps: (1) a stale
+comment `permissionPresets.ts` inherited from the UI-FR06 fix — it claimed
+`AgentEvent` has only one permission-shaped variant, no longer true —
+rewritten, `resolvePresetDecision`'s signature widened to cover
+`permissionRequest` explicitly (still always "ask": FR4's destructive-mode
+guard has no signal to check a generic action against, unlike a reviewable
+`EditHunk`); (2) **NFR4 "bundle adapter binaries"** was genuinely unmet — the
+app still required system Node/npx. This was a real product/scope call (how
+much to invest, not a technical unknown), so it was escalated via
+AskUserQuestion rather than silently decided either way; the user chose
+"vendor the npm packages." Built: `scripts/vendor-adapters.sh` + new
+`src-tauri/src/vendored_adapters.rs`, execution-verified for real (a live ACP
+handshake through the actual production transport against each vendored
+node+package pair, zero system Node/npx). Also found and fixed, separately:
+both adapter npm packages were pointing at upstream-deprecated package names
+(renamed to the `@agentclientprotocol` scope) — fixed test-first per the
+frozen-zone ritual, since vendoring the deprecated packages would have baked
+in staleness permanently. Everything else re-checked against both PRDs
+(FR1-50, UI-FR1-34) traces to real, built code or a correctly-tagged
+v1.1/v2/operator-only deferral — see the line-by-line accounting below.
+One item remains a genuinely open PRODUCT decision, not an oversight:
+UI-PRD §10 explicitly flags "profile visualization depth — an evidence-
+linked trait list, or charts" as an open question, and the `strengths: Vec<String>`
+schema field has no per-trait evidence structure to attach even if built —
+adding one is a schema change requiring its own product sign-off, not a
+frontend gap to quietly close.
+
 ### 🔴 P0 — real bug, not a doc gap
 - [x] **`cancel()` is a no-op in the real ACP host.** FIXED (2026-07-06). Test-first
       ritual: added `cancel_stops_an_in_flight_turn_via_real_notification` to

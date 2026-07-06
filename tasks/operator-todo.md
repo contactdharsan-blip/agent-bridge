@@ -34,7 +34,16 @@ Status at time of writing: M3, M4, M5, M5b implemented + committed on branch
 - [ ] macOS: Apple Developer ID + notarization for the signed `.dmg`.
 - [ ] Windows: code-signing certificate.
 - [ ] Linux: AppImage/deb packaging (no signing identity needed, but a build host).
-- [ ] Bundle the prebuilt ACP adapter binaries into the app (`bin/` — see `bin/README.md`) so users install no toolchain (NFR4).
+- [x] Bundle the prebuilt ACP adapter binaries into the app (NFR4) — DONE
+      (2026-07-06, your call: "vendor the npm packages" over shipping as-is
+      or chasing true standalone binaries). `scripts/vendor-adapters.sh` +
+      `src-tauri/src/vendored_adapters.rs`; wired into
+      `.github/workflows/desktop-build.yml`. Execution-verified on macOS
+      (real ACP handshake against the vendored artifacts, no system Node/npx).
+      **Still needs you:** a real `npm run vendor-adapters && npm run tauri
+      build` pass on Windows and Linux to confirm the script's win/linux
+      branches actually work end-to-end — only macOS arm64 was reachable in
+      this sandbox. See `bin/README.md` for the full mechanism.
 
 ## 🧠 Product / business decisions (Claude will NOT decide these — they're yours)
 - [ ] **Pricing / packaging** (PRD §11): one-time vs subscription; does the profile layer anchor a paid tier?
