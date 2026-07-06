@@ -5,9 +5,10 @@ import { TOUR_STEPS } from "../data/tourSteps";
 import { prefersReducedMotion } from "../state/motion";
 import { Icon } from "./Icon";
 
-// Must exceed App.tsx's tab-switch transition (0.16s, App.tsx:209) so the
-// target element has actually mounted before we highlight it.
-const TAB_SWITCH_SETTLE_MS = 220;
+// Must exceed the point where the incoming panel mounts during App.tsx's
+// fade-through tab switch (exit 0.08s, then the target exists while its 0.18s
+// entry fade plays) so the target element is in the DOM before we highlight it.
+const TAB_SWITCH_SETTLE_MS = 300;
 
 // The first-launch guided walkthrough (UI-FR28, previously deferred). Unlike
 // CommandPalette, dismissal is Skip/Finish/Escape only — a multi-step teaching

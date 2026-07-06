@@ -263,6 +263,51 @@ overlap (audit found no bug, just redundant teaching — not worth the risk of
 touching hardened tour code for a non-bug) and full DriftWrite/InstructionsPreview
 mechanical unification (flagged high-risk by the audit; item 10 above is the safe slice).
 
+## v1.5 — full smoothness audit + library-research-driven rework (2026-07-06)
+
+Goal (operator, via /goal): "fully audit and rework entire product to make it
+feel smooth and thought out by researching many react libraries to do so."
+Frontend-only; 🔴 contract untouched; honesty gates never weakened (CLAUDE.md).
+Standing constraints: disk-tight (small deps only), keep hand-authored Icon
+set, root `MotionConfig reducedMotion="user"`, verify per batch with
+`npm run typecheck && npm run build && npm test` + headless-Chromium visual pass.
+
+- [x] **R. Library research** — 3 parallel research agents (overlay/input
+      primitives; motion/animation; chat-stream + feedback UX), web-sourced
+      mid-2026 facts (npm downloads, releases, bundlephobia). Decision table:
+
+      | Library | Verdict | Why |
+      |---|---|---|
+      | use-stick-to-bottom 1.1.6 | **ADOPT** (only new dep, ~5.7kB gz, zero-dep) | Exact fit for the streaming-thread scroll problem; solves the hard 30% (user-scroll vs programmatic-scroll disambiguation without debounce, ResizeObserver re-pin, scroll anchoring) a hand-rolled sentinel gets wrong; powers shadcn.io AI Conversation |
+      | cmdk | REJECT (frozen ~12mo; palette already APG-correct) — port its ~40-line `command-score` ranking instead | revisit if commands need groups/pages/virtualization |
+      | kbar | REJECT | perma-beta, bundles its own animator + fuse.js — duplicates framer-motion |
+      | vaul | REJECT | mobile bottom-sheet idiom; no surface in a 4-tab desktop app |
+      | more Radix primitives / unified `radix-ui` pkg | REJECT for now | hand-rolled radio/disclosure already APG-correct + tested; unified pkg installs all ~47 primitives (disk); switch at 5+ primitives |
+      | Base UI (@base-ui/react) | REJECT here | the designated Radix successor (shadcn default for new projects) but never mix portal/focus systems; migrate wholesale only if Radix blocks us |
+      | `motion` rename (framer-motion→motion/react) | STAY | same 12.42.2 code published in lockstep, zero breaking changes — rename opportunistically, not as churn |
+      | @formkit/auto-animate | REJECT | strict subset of framer's `layout` prop already in the bundle |
+      | number-flow | REJECT | odometer-spinning a confidence figure is exactly the gamified treatment NFR2 forbids |
+      | sonner | REJECT — keep hand-rolled toasts | a11y core already right; port its 2 real wins by hand (pause-on-hover WCAG 2.2.1, stack cap) |
+      | virtua / react-virtuoso / tanstack-virtual | REJECT (premature) | hundreds of bubbles ≠ virtualization scale; use CSS `content-visibility` instead; virtualization×streaming×stick-to-bottom is the most bug-prone chat combo |
+      | react-hotkeys-hook | REJECT | ~6 shortcuts, guard already written; robustness tweaks by hand |
+      | View Transitions API | REJECT | parallel animation system that ignores MotionConfig reducedMotion; React 18 needs flushSync hacks |
+
+      Motion strategy (zero new deps): layoutId sliding tab pill (spring 380/32);
+      asymmetric fade-through on tab panels (exit 0.08s easeIn → enter 0.18s easeOut,
+      y:4); AnimatePresence popLayout on toasts + mutable lists (servers, bindings,
+      gap-fills); motion tokens codified in src/state/motion.ts (SPRING_SNAPPY
+      500/40, SPRING_SETTLE visualDuration .3 bounce .15, FADE .15 easeOut);
+      staggered card entrance ≤300ms total on Profile/Doctor results; tighten CSS
+      --transition-spring 500ms/1.56-overshoot → 300ms/1.3; height-auto reveals on
+      NON-GATE expanders only; scaleX ceiling meter (state color never animates);
+      message entrance y:6/0.15s; never animate token deltas or gate mount/unmount.
+- [ ] **A. Product audit** — parallel read-only agents (motion gaps, flow
+      friction/thought-out feel) + a rendered-screenshot pass.
+- [ ] **B. Rework batches** — implement adopted libs + audit fixes, one
+      reviewable batch per commit, full gate + visual pass each.
+- [ ] **V. Verify** — adversarial self-review of the loop's own diffs
+      (lessons 2026-07-02), full gate, docs updated.
+
 ## Cross-cutting (build once, never delete)
 - Golden-config fixtures (real `.mcp.json` / `config.toml` / `.cursor/mcp.json`) — build at M3.
 - JSON Schema on every Profile Skill output — validate + reject at the boundary (M5b).

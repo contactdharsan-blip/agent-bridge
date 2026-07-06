@@ -25,6 +25,7 @@ import {
   type PermissionPreset,
   type PermissionPresetMap,
 } from "./state/permissionPresets";
+import { PANEL_ENTER, PANEL_EXIT } from "./state/motion";
 import { load, save } from "./state/persist";
 import { applyAccent, type AccentName } from "./state/theme";
 import { useToast } from "./state/toast";
@@ -378,12 +379,16 @@ export default function App() {
 
       <main className="app-main">
         <AnimatePresence mode="wait">
+          {/* Fade-through: fast ease-in exit, slower ease-out entry — motion
+              concentrates in the persistent tab pill, panels just swap. The
+              className continues the flex/min-height chain so each panel (and
+              the Run tab's thread) scrolls internally under fixed chrome. */}
           <motion.div
             key={tab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.16, ease: [0.4, 0, 0.2, 1] }}
+            className="tab-panel"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0, transition: PANEL_ENTER }}
+            exit={{ opacity: 0, transition: PANEL_EXIT }}
           >
             {tab === "run" && (
               <div className="panel">
