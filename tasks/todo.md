@@ -586,14 +586,25 @@ worst-first.
       `connected` session (live IPC), same caveat as other Tauri-gated
       surfaces; operator-verifiable via `npm run tauri dev`. Verified:
       `npm run typecheck && npm run build && npm test` (70/70) green.
-- [ ] **`OnboardingTour.tsx` mislabeled + contradicts its own spec.** PRD reuses
-      "UI-FR28" for two different requirements (§6 linear wizard vs §11 addendum
-      inline checklist); the Tour's own comments claim UI-FR28 but it satisfies
-      neither — it's a blocking Radix modal (`onInteractOutside` → `preventDefault`),
-      contradicting the addendum's "never a modal wall," and never calls the
-      wizard's real commands (no `preview_mcp`/`audit_secret_bindings`/
-      `start_session`/`validate_profile`) — it only narrates + spotlights DOM.
-      `OnboardingCard.tsx` is the one that actually matches the addendum.
+- [x] **`OnboardingTour.tsx` mislabeled + contradicts its own spec.** FIXED
+      (2026-07-06). Rewrote the misleading comments in `OnboardingTour.tsx`,
+      `App.tsx`, and `data/tourSteps.ts` — none now claims UI-FR28 (the PRD
+      reuses that id for two different specs, §6's command-calling wizard vs
+      §11's addendum inline checklist); each now explicitly says
+      `OnboardingCard.tsx` is the one that satisfies §11's addendum (made even
+      more true by the FR48 fix above — it now calls `run_doctor` and
+      `audit_secret_bindings` for real) and that the Tour is a deliberately
+      separate, supplementary guided walkthrough. Resolved the "modal wall"
+      half differently than a literal fix: the blocking-except-Skip/Escape
+      behavior is a reasoned, deliberate choice for THIS feature (a multi-step
+      teaching flow shouldn't discard progress on a stray backdrop click) —
+      it only ever contradicted a spec the Tour shouldn't have been claiming
+      to satisfy in the first place, so un-claiming the spec is the honest
+      fix, not stripping the modal's own reasonable behavior. Verified
+      empirically rather than assumed: a real headless-Chromium pass
+      confirmed Escape still closes the dialog (only outside-click is
+      suppressed), matching the new comment's claim. Verified: `npm run
+      typecheck && npm run build && npm test` (92/92) green.
 
 ### Confirmed non-issues (already tracked/deferred correctly — no action)
 - FR29 canonical-store export/backup: unbuilt, but that's v1.1 as tagged; not

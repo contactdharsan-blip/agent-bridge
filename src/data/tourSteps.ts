@@ -1,8 +1,14 @@
-// Data only, no JSX — the first-launch guided walkthrough (deferred UI-FR28,
-// now built). Each step optionally targets a `data-tour-step="<selector>"`
-// element; steps without a `selector` render as a centered card. `tab` drives
-// OnboardingTour to switch the app's active tab before it looks for the
-// target, so the user always sees the real UI behind the tour, never a mock.
+// Data only, no JSX — steps for OnboardingTour, a supplementary guided
+// walkthrough. NOT the same thing as UI-FR28 (the PRD reuses that id for two
+// different specs: §6's command-calling wizard and §11's inline first-run
+// checklist — OnboardingCard.tsx is the one that actually satisfies §11's,
+// and neither this tour nor its steps call any of §6's listed commands). This
+// tour teaches by spotlighting the real UI once; OnboardingCard stays as the
+// ongoing, dismissable checklist. Each step optionally targets a
+// `data-tour-step="<selector>"` element; steps without a `selector` render as
+// a centered card. `tab` drives OnboardingTour to switch the app's active tab
+// before it looks for the target, so the user always sees the real UI behind
+// the tour, never a mock.
 export interface TourStep {
   id: string;
   tab: string;

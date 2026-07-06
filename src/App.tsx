@@ -159,8 +159,10 @@ export default function App() {
     save("settings.onboardingDismissed", onboardingDismissed);
   }, [onboardingDismissed]);
 
-  // First-launch guided walkthrough (UI-FR28). Opens once automatically, then
-  // stays replayable forever via the command palette and the header info button.
+  // First-launch guided walkthrough (a supplementary tour, NOT what satisfies
+  // UI-FR28 — see OnboardingTour.tsx's own comment; OnboardingCard.tsx is the
+  // one that does). Opens once automatically, then stays replayable forever
+  // via the command palette and the header info button.
   const [tourCompleted, setTourCompleted] = useState(() =>
     load<boolean>("settings.tourCompleted", false),
   );

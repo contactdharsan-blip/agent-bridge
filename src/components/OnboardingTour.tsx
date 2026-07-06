@@ -1,5 +1,4 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { TOUR_STEPS } from "../data/tourSteps";
 import { prefersReducedMotion } from "../state/motion";
@@ -10,11 +9,27 @@ import { Icon } from "./Icon";
 // entry fade plays) so the target element is in the DOM before we highlight it.
 const TAB_SWITCH_SETTLE_MS = 300;
 
-// The first-launch guided walkthrough (UI-FR28, previously deferred). Unlike
-// CommandPalette, dismissal is Skip/Finish/Escape only — a multi-step teaching
-// flow shouldn't discard progress on a stray backdrop click. It drives the
-// real tab underneath itself (via onTabChange) and spotlights the real DOM
-// element for each step (via data-tour-step) — never a mock screenshot.
+// A supplementary first-launch guided walkthrough — teaches by spotlighting
+// the real UI once. This is NOT what satisfies UI-FR28: the PRD reuses that
+// id for two different specs (§6's command-calling wizard — list_agents,
+// preview_mcp, check_drift, audit_secret_bindings, start_session,
+// validate_profile, etc. — and §11's addendum, an inline, dismissable,
+// never-a-modal-wall first-run checklist). This component calls none of §6's
+// commands (it only narrates + drives tab/DOM), and it IS a blocking Radix
+// dialog (see below), so it satisfies neither — OnboardingCard.tsx is the one
+// that actually matches §11's addendum (inline checklist, real list_agents/
+// run_doctor/audit_secret_bindings calls, dismissable, never a modal). The
+// two coexist deliberately: this tour teaches once, OnboardingCard stays as
+// the ongoing checklist.
+//
+// Being a modal here is a deliberate, scoped choice for THIS feature (not a
+// violation of a spec this component doesn't claim): dismissal is
+// Skip/Finish/Escape only — a multi-step teaching flow shouldn't discard
+// progress on a stray backdrop click — but every real exit stays reachable
+// (Escape still closes it via Dialog's own onOpenChange; only outside-click
+// is suppressed). It drives the real tab underneath itself (via onTabChange)
+// and spotlights the real DOM element for each step (via data-tour-step) —
+// never a mock screenshot.
 //
 // The highlight is a `tour-highlight` class toggled onto the real target
 // element for the active step, so its ring tracks the element exactly through
@@ -91,6 +106,12 @@ export function OnboardingTour({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, stepIndex]);
 
+  // Focus the primary action whenever the step changes, so Enter advances
+  // the tour instead of landing wherever focus last was.
+  useEffect(() => {
+    primaryRef.current?.focus();
+  }, [stepIndex]);
+
   const finish = () => {
     onClose();
   };
@@ -100,105 +121,79 @@ export function OnboardingTour({
   if (!step) return null;
 
   return (
+    // Native Radix mount/unmount (no forceMount, no AnimatePresence): this app's
+    // framer-motion transitions were found to never fire their completion —
+    // confirmed by the overlay and first-step content both permanently pinned
+    // at their `initial` keyframe, and by "Skip"/"Finish" leaving a dead but
+    // still-`pointer-events:auto` Dialog.Content mounted forever waiting on an
+    // exit animation that never resolves (blocking clicks under the ghost
+    // card indefinitely). Radix's own open-driven mount/unmount has no such
+    // dependency, at the cost of the fade/scale transitions this used to have.
     <Dialog.Root open={open} onOpenChange={(o) => !o && finish()}>
-      <AnimatePresence>
-        {open && (
-          <Dialog.Portal forceMount>
-            <Dialog.Overlay asChild forceMount>
-              <motion.div
-                className="tour-overlay"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              />
-            </Dialog.Overlay>
-            <Dialog.Content
-              forceMount
-              className={
-                "tour-card" +
-                (!step.selector || missing
-                  ? " tour-card-centered"
-                  : cardSide === "left"
-                    ? " tour-card-left"
-                    : "")
-              }
-              onInteractOutside={(e) => e.preventDefault()}
-              onOpenAutoFocus={(e) => e.preventDefault()}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowRight") {
-                  e.preventDefault();
-                  goNext();
-                } else if (e.key === "ArrowLeft" && stepIndex > 0) {
-                  e.preventDefault();
-                  goBack();
-                }
-              }}
+      <Dialog.Portal>
+        <Dialog.Overlay className="tour-overlay" />
+        <Dialog.Content
+          className={
+            "tour-card" +
+            (!step.selector || missing
+              ? " tour-card-centered"
+              : cardSide === "left"
+                ? " tour-card-left"
+                : "")
+          }
+          onInteractOutside={(e) => e.preventDefault()}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowRight") {
+              e.preventDefault();
+              goNext();
+            } else if (e.key === "ArrowLeft" && stepIndex > 0) {
+              e.preventDefault();
+              goBack();
+            }
+          }}
+        >
+          <div key={step.id}>
+            <Dialog.Title className="card-title">
+              <Icon name="sparkles" /> {step.title}
+            </Dialog.Title>
+            <Dialog.Description className="tour-body">{step.body}</Dialog.Description>
+            <div
+              className="tour-dots"
+              role="img"
+              aria-label={`Step ${stepIndex + 1} of ${TOUR_STEPS.length}`}
             >
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={step.id}
-                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                  transition={{ duration: 0.32, ease: [0.34, 1.56, 0.64, 1] }}
-                  // Focus the primary action once the entering step has actually
-                  // mounted (under mode="wait" the new button doesn't exist until
-                  // the old step's exit finishes) so Enter advances the tour
-                  // instead of landing on Skip and dismissing it.
-                  onAnimationComplete={() => primaryRef.current?.focus()}
-                >
-                  <Dialog.Title className="card-title">
-                    <Icon name="sparkles" /> {step.title}
-                  </Dialog.Title>
-                  <Dialog.Description className="tour-body">{step.body}</Dialog.Description>
-                  <div
-                    className="tour-dots"
-                    role="img"
-                    aria-label={`Step ${stepIndex + 1} of ${TOUR_STEPS.length}`}
-                  >
-                    {TOUR_STEPS.map((s, i) => (
-                      <span
-                        key={s.id}
-                        className={`tour-dot ${i === stepIndex ? "tour-dot-active" : ""}`}
-                      />
-                    ))}
-                  </div>
-                  <div className="tour-actions">
-                    <button className="btn btn-sm btn-ghost" onClick={finish}>
-                      Skip
-                    </button>
-                    <div className="tour-actions-nav">
-                      <button
-                        className="btn btn-sm"
-                        onClick={goBack}
-                        disabled={stepIndex === 0}
-                      >
-                        Back
-                      </button>
-                      <button
-                        ref={primaryRef}
-                        className="btn btn-primary btn-sm"
-                        onClick={goNext}
-                      >
-                        {last ? (
-                          <>
-                            <Icon name="check" /> Finish
-                          </>
-                        ) : (
-                          <>
-                            <Icon name="arrowRight" /> Next
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-            </Dialog.Content>
-          </Dialog.Portal>
-        )}
-      </AnimatePresence>
+              {TOUR_STEPS.map((s, i) => (
+                <span
+                  key={s.id}
+                  className={`tour-dot ${i === stepIndex ? "tour-dot-active" : ""}`}
+                />
+              ))}
+            </div>
+            <div className="tour-actions">
+              <button className="btn btn-sm btn-ghost" onClick={finish}>
+                Skip
+              </button>
+              <div className="tour-actions-nav">
+                <button className="btn btn-sm" onClick={goBack} disabled={stepIndex === 0}>
+                  Back
+                </button>
+                <button ref={primaryRef} className="btn btn-primary btn-sm" onClick={goNext}>
+                  {last ? (
+                    <>
+                      <Icon name="check" /> Finish
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="arrowRight" /> Next
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
     </Dialog.Root>
   );
 }
