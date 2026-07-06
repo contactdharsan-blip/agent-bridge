@@ -5,7 +5,45 @@
  * app stays dependency-light; the spring "feel" rides the --transition-spring
  * curve and is gated by prefers-reduced-motion. */
 
+/* Self-hosted (not a live Google Fonts/CDN <link> — this is a desktop app,
+ * not a webpage; it should render correctly offline and never phone home to
+ * a font CDN on launch). DESIGN.md §3.1 specifies Bricolage Grotesque
+ * (display) + General Sans (body) + JetBrains Mono; General Sans is
+ * substituted with Inter here — same free-for-any-use guarantee (SIL OFL,
+ * same Google Fonts source as the other two) without needing to separately
+ * verify Fontshare's bundling terms for a distributed binary. All three:
+ * variable fonts, single file each, Latin subset only (the app's UI text is
+ * English-only). */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./assets/fonts/bricolage-grotesque-variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./assets/fonts/inter-variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./assets/fonts/jetbrains-mono-variable.woff2") format("woff2");
+}
+
 :root {
+  /* Typography (DESIGN.md §3.1) */
+  --font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
   /* Theme hooks — override to re-skin the whole app */
   --theme-primary: #34d399;
   --theme-primary-rgb: 52, 211, 153;
@@ -101,11 +139,17 @@
   --removed: rgba(239, 68, 68, 0.16);
 
   color-scheme: dark;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
 }
 
 * {
   box-sizing: border-box;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
 }
 
 body {
@@ -169,7 +213,7 @@ body {
   -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .app-title {
@@ -188,35 +232,41 @@ body {
 
 .app-header h1 {
   margin: 0;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
 /* ---- Agent surface ---------------------------------------------------------- */
+/* One quiet bar (status chips + connect controls), not two visually boxed
+   sections — a tight shared gap instead of a divider is what reads as
+   "composer-style" rather than a stacked settings form. */
 .agent-surface {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-divider);
 }
 
 .agent-status-strip {
   display: flex;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-1);
   flex-wrap: wrap;
 }
 
+/* Quiet pill: background only, no border — a bordered chip per agent read as
+   its own boxed widget; a tinted fill reads as one calm status row. */
 .agent-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-sm);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  gap: var(--space-1);
+  padding: 0.2rem var(--space-2);
+  font-size: var(--text-xs);
+  background: var(--surface-raised);
+  border: 1px solid transparent;
   border-radius: var(--radius-full);
 }
 
@@ -225,14 +275,20 @@ body {
   font-weight: 500;
 }
 
+/* Icon-only re-check affordance — sized/styled like the header's own icon
+   buttons rather than a competing text button next to Connect. */
+.agent-recheck:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .agent-connect {
   display: flex;
   gap: var(--space-3);
-  align-items: flex-end;
+  align-items: center;
   flex-wrap: wrap;
 }
 
-.agent-connect label,
 .field label {
   display: flex;
   flex-direction: column;
@@ -242,6 +298,20 @@ body {
   color: var(--color-text-tertiary);
   gap: var(--space-1);
   font-weight: 600;
+}
+
+/* Quiet inline caption before its control, all on one line — the flattened
+   "composer bar" alternative to .field label's stacked all-caps form style,
+   scoped to the connect row only. */
+.agent-connect label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .agent-connect select,
@@ -272,7 +342,7 @@ body {
   min-width: 0;
 }
 .cwd-field input {
-  width: 22rem;
+  width: 16rem;
   max-width: 100%;
   min-width: 0;
 }
@@ -463,7 +533,7 @@ body {
   align-items: center;
   gap: var(--space-2);
   margin: 0 0 var(--space-2);
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-display);
   font-size: var(--text-md);
   font-weight: 600;
 }
@@ -502,7 +572,7 @@ body {
 .panel-empty h3 {
   margin: 0 0 var(--space-2);
   color: var(--color-text-primary);
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: var(--text-md);
 }
@@ -749,7 +819,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: var(--font-mono);
   color: var(--color-text-secondary);
 }
 
@@ -765,7 +835,7 @@ body {
 .diff-body {
   margin: 0;
   padding: var(--space-2);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   overflow-x: auto;
   /* A large hunk must never push its own Accept/Reject (the one blocking
@@ -836,8 +906,14 @@ body {
   font-weight: 600;
   background: var(--glass-bg);
   color: var(--color-text-primary);
+  /* No `background` transition: .btn-primary/.btn-send/.btn-connect paint a
+     var(--theme-*)-driven gradient, and gradient-to-gradient isn't
+     interpolatable — WebKit was observed getting stuck rendering the
+     pre-switch gradient indefinitely after an accent change (never
+     repainting to the new theme colors) rather than jumping to the end
+     value like a transitioned solid color would. */
   transition: transform var(--transition-spring), box-shadow var(--transition-base),
-    border-color var(--transition-fast), background var(--transition-fast);
+    border-color var(--transition-fast);
 }
 .btn:hover:not(:disabled) {
   border-color: rgba(255, 255, 255, 0.22);
@@ -925,7 +1001,7 @@ body {
   font-weight: 600;
 }
 .banner-detail {
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
   white-space: pre-wrap;
@@ -1000,7 +1076,7 @@ body {
   border: none;
   border-bottom: 1px solid var(--glass-border);
   color: var(--color-text-primary);
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-base);
   padding: 0.2rem 0;
 }
@@ -1104,7 +1180,7 @@ body {
   color: var(--color-text-primary);
   padding: 0.35rem var(--space-2);
   font: inherit;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
   min-width: 0;
 }
@@ -1119,7 +1195,7 @@ body {
 }
 .secret-fix {
   color: var(--theme-primary-light);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-base);
 }
 
@@ -1135,7 +1211,7 @@ body {
   border-radius: var(--radius-input);
   color: var(--color-text-primary);
   padding: var(--space-2);
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
   resize: vertical;
   width: 100%;
@@ -1207,7 +1283,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
@@ -1217,7 +1293,7 @@ body {
   background: rgba(3, 7, 18, 0.55);
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: 1.5;
   white-space: pre;
@@ -1248,7 +1324,7 @@ body {
   margin: var(--space-1) 0 0;
   padding-left: 0;
   list-style: none;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
 }
 .drift-added {
@@ -1277,7 +1353,7 @@ body {
   flex-wrap: wrap; /* lets .binding-hint drop to its own full-width line */
 }
 .secret-ref {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--theme-primary-light);
   min-width: 0;
@@ -1435,7 +1511,7 @@ body {
 }
 .carry-detail {
   color: var(--color-text-tertiary);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   min-width: 0;
   overflow-wrap: anywhere;
@@ -1563,7 +1639,7 @@ body {
 
 /* ---- Command palette + kbd -------------------------------------------------- */
 .kbd {
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   padding: 0.1rem 0.35rem;
   border-radius: var(--radius-sm);
@@ -1573,16 +1649,17 @@ body {
   line-height: 1.4;
 }
 
+/* Now rendered inside HeaderMenu's popover (a vertical menu section), not
+   pinned to the edge of a flex row — no auto-margin needed. */
 .accent-switcher {
-  margin-left: auto;
   display: inline-flex;
   gap: var(--space-1);
   align-items: center;
 }
-/* One functional toolbar (⌘K / replay tour / doctor), visually set apart from
-   the cosmetic accent switcher so the two don't read as one undifferentiated
-   row of icon buttons. */
+/* Top-right cluster: the ⌘K trigger + the HeaderMenu button — down from the
+   8 controls (5 accent dots + 3 icon buttons) this used to hold directly. */
 .header-actions {
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -1798,7 +1875,7 @@ body {
   gap: var(--space-2);
 }
 .doctor-command {
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
   overflow-wrap: anywhere;
@@ -2034,7 +2111,7 @@ body {
   flex: 1;
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
 }
 
 .merged-view,
@@ -2062,7 +2139,7 @@ body {
 }
 .vibe-confidence-badge {
   flex-shrink: 0;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
 }
 .vibe-meta-row {
   display: flex;
@@ -2105,7 +2182,7 @@ body {
 .weight-meta {
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
 }
 
 .merged-section {
@@ -2143,7 +2220,7 @@ body {
   width: 2.5rem;
   text-align: right;
   font-size: var(--text-xs);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   color: var(--color-text-tertiary);
 }
 
@@ -2349,25 +2426,18 @@ body {
   gap: var(--space-1);
   align-items: center;
 }
-/* Native <input type="color"> styled to match the preset dots — the swatch IS
-   the current custom pick, so the control doubles as its own preview. */
+/* Popover trigger for the color wheel — the swatch IS the current custom
+   pick, so the control doubles as its own preview (background set inline). */
 .accent-custom {
   width: 1.5rem;
   height: 1.5rem;
-  padding: 0.22rem;
+  padding: 0;
   border: none;
   border-radius: var(--radius-full);
-  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
   cursor: pointer;
   opacity: 0.6;
   transition: transform var(--transition-spring), opacity var(--transition-fast);
-}
-.accent-custom::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-.accent-custom::-webkit-color-swatch {
-  border-radius: var(--radius-full);
-  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 .accent-custom:hover {
   opacity: 1;
@@ -2375,6 +2445,178 @@ body {
 .accent-custom.accent-dot-active {
   opacity: 1;
   transform: scale(1.15);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+/* ---- Color wheel popover (replaces native <input type="color">) ------------ */
+.color-wheel-popover {
+  z-index: 60;
+  background: var(--color-bg-secondary, #0b1220);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  /* opacity-only: Radix positions this element via its own inline `transform`
+     (floating-ui) — a transform-based keyframe here would fight/overwrite
+     that positioning once the animation's fill-mode freezes its own value. */
+  animation: fade-in var(--transition-fast) ease-out;
+}
+.color-wheel-popover-arrow {
+  fill: var(--color-bg-secondary, #0b1220);
+}
+
+/* ---- Header settings menu (HeaderMenu.tsx) ----------------------------------- */
+.header-menu-popover {
+  z-index: 60;
+  min-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--color-bg-secondary, #0b1220);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  /* opacity-only, matching .color-wheel-popover: Radix positions this via its
+     own inline transform (floating-ui) — a transform-based keyframe would
+     fight that positioning once the animation's fill-mode freezes its value. */
+  animation: fade-in var(--transition-fast) ease-out;
+}
+.header-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+}
+.header-menu-label {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+}
+.header-menu-divider {
+  height: 1px;
+  background: var(--color-divider);
+  border: none;
+  margin: 0;
+}
+.header-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+.header-menu-item:hover,
+.header-menu-item:focus-visible {
+  background: var(--surface-raised);
+  outline: none;
+}
+.color-wheel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.color-wheel-surface {
+  position: relative;
+  border-radius: var(--radius-full);
+  /* At v=1 this IS hsv(h,s,1): a radial white→transparent wash over a conic
+     hue ring linearly blends white toward the pure hue by exactly (1-s) —
+     the same interpolation hsv→rgb does at full brightness (see ColorWheel.tsx). */
+  background:
+    radial-gradient(circle, #fff 0%, rgba(255, 255, 255, 0) 72%),
+    conic-gradient(from 0deg, #f00 0deg, #ff0 60deg, #0f0 120deg, #0ff 180deg, #00f 240deg, #f0f 300deg, #f00 360deg);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  cursor: crosshair;
+  touch-action: none;
+}
+.color-wheel-surface:focus-visible {
+  outline: 2px solid var(--theme-primary);
+  outline-offset: 3px;
+}
+.color-wheel-brightness-mask {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+  background: #000;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+.color-wheel-thumb {
+  position: absolute;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: var(--radius-full);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.color-wheel-slider {
+  width: 100%;
+  height: 0.9rem;
+  border-radius: var(--radius-full);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+.color-wheel-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: var(--radius-full);
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.color-wheel-slider::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border-radius: var(--radius-full);
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.color-wheel-hex-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+.color-wheel-hex-swatch {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+.color-wheel-hex {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--surface-inset);
+  color: var(--color-text-primary);
+}
+.color-wheel-hex:focus-visible {
+  outline: 2px solid var(--theme-primary);
+  outline-offset: 1px;
 }
 
 /* Upfront token-cost line (NFR2): dim, small, always phrased as an estimate. */

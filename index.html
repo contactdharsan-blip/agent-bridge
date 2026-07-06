@@ -4,18 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Agent Bridge</title>
-    <!-- Design-system fonts (DESIGN §3). CDN-loaded; if a webview blocks external
-         fonts they degrade to the system-ui stacks in App.css. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&family=Bricolage+Grotesque:opsz,wght@12..48,400..800&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Design-system fonts (DESIGN §3) are self-hosted via @font-face in
+         App.css, not CDN-linked: this is a desktop app, and a live
+         Google Fonts/Fontshare network call on every launch is a real
+         offline-first + privacy regression a webpage wouldn't have. -->
   </head>
   <body>
     <div id="root"></div>
