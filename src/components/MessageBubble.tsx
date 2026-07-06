@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { FADE } from "../state/motion";
 import type { ChatMessage } from "../types";
+import { AgentLogo } from "./AgentLogo";
 import { Icon } from "./Icon";
 
 // One bubble renderer for every agent (FR2). `thought` is the agent's reasoning,
@@ -42,7 +43,12 @@ export function MessageBubble({
       : ROLE_LABEL[message.role];
   return (
     <motion.div className={`bubble bubble-${message.role}`} {...entry}>
-      {label && <span className="bubble-role">{label}</span>}
+      {label && (
+        <span className="bubble-role">
+          {message.role === "assistant" && message.agent && <AgentLogo id={message.agent} />}
+          {label}
+        </span>
+      )}
       <div className="bubble-text">{message.text}</div>
     </motion.div>
   );

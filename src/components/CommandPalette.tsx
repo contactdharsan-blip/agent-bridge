@@ -13,19 +13,38 @@ export interface Command {
   label: string;
   hint?: string;
   run: () => void;
+  /** When set, the command is listed but inert, with the reason shown — an
+   * absent command is undiscoverable; a disabled one teaches (UI-NFR4). */
+  disabledReason?: string;
+}
+
+/**
+ * Ranked fuzzy score (0 = no match): case-insensitive subsequence, rewarding
+ * contiguous runs and word-boundary hits, lightly penalizing gaps. A ~40-line
+ * scorer closes the relevance gap to cmdk without the dep (see todo.md's
+ * library-research table).
+ */
+export function commandScore(label: string, query: string): number {
+  if (!query) return 1;
+  const l = label.toLowerCase();
+  let li = 0;
+  let score = 0;
+  let streak = 0;
+  for (const ch of query.toLowerCase()) {
+    const found = l.indexOf(ch, li);
+    if (found === -1) return 0;
+    streak = found === li && li !== 0 ? streak + 1 : 1;
+    score += streak * 2;
+    if (found === 0 || l[found - 1] === " ") score += 3;
+    score -= Math.min(found - li, 8) * 0.2;
+    li = found + 1;
+  }
+  return Math.max(score, 0.001) / (l.length * 0.02 + 1);
 }
 
 /** Case-insensitive subsequence match, so "gcfg" finds "Go to Config". */
 export function matches(label: string, query: string): boolean {
-  if (!query) return true;
-  const l = label.toLowerCase();
-  let i = 0;
-  for (const ch of query.toLowerCase()) {
-    i = l.indexOf(ch, i);
-    if (i === -1) return false;
-    i += 1;
-  }
-  return true;
+  return commandScore(label, query) > 0;
 }
 
 export function CommandPalette({
@@ -41,10 +60,14 @@ export function CommandPalette({
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = useMemo(
-    () => commands.filter((c) => matches(c.label, query)),
-    [commands, query],
-  );
+  const filtered = useMemo(() => {
+    if (!query) return commands;
+    return commands
+      .map((c, i) => ({ c, i, s: commandScore(c.label, query) }))
+      .filter((x) => x.s > 0)
+      .sort((a, b) => b.s - a.s || a.i - b.i)
+      .map((x) => x.c);
+  }, [commands, query]);
 
   useEffect(() => {
     if (!open) return;
@@ -58,7 +81,7 @@ export function CommandPalette({
 
   const runAt = (i: number) => {
     const cmd = filtered[i];
-    if (!cmd) return;
+    if (!cmd || cmd.disabledReason) return;
     onClose();
     cmd.run();
   };
@@ -133,12 +156,17 @@ export function CommandPalette({
                       id={`palette-opt-${c.id}`}
                       role="option"
                       aria-selected={i === selected}
-                      className={`palette-item ${i === selected ? "palette-item-active" : ""}`}
+                      aria-disabled={c.disabledReason ? true : undefined}
+                      className={`palette-item ${i === selected ? "palette-item-active" : ""} ${c.disabledReason ? "palette-item-disabled" : ""}`}
                       onMouseEnter={() => setSelected(i)}
                       onClick={() => runAt(i)}
                     >
                       <span>{c.label}</span>
-                      {c.hint && <kbd className="kbd">{c.hint}</kbd>}
+                      {c.disabledReason ? (
+                        <span className="palette-reason">{c.disabledReason}</span>
+                      ) : (
+                        c.hint && <kbd className="kbd">{c.hint}</kbd>
+                      )}
                     </li>
                   ))}
                 </ul>

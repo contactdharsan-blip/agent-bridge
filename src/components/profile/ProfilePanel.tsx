@@ -77,17 +77,36 @@ export function ProfilePanel({ stream }: { stream: AgentStream }) {
   };
 
   const importProfiles = async (file: File) => {
+    let list: unknown[];
     try {
       const parsed = JSON.parse(await file.text());
-      const list: unknown[] = Array.isArray(parsed) ? parsed : (parsed?.profiles ?? []);
-      let n = 0;
-      for (const p of list) {
-        addProfile(await validateProfile(JSON.stringify(p)));
-        n += 1;
-      }
-      toast.push(n ? "success" : "info", n ? `Imported ${n} profile(s)` : "No profiles in file");
+      list = Array.isArray(parsed) ? parsed : (parsed?.profiles ?? []);
     } catch (e) {
-      toast.push("error", `Import rejected at the boundary: ${e}`);
+      toast.push("error", `Import failed — not valid JSON: ${e}`);
+      return;
+    }
+    // Validate EVERYTHING first, then add: a partially-valid file used to abort
+    // mid-loop after silently adding earlier entries, with no record of which
+    // profiles landed and which were rejected.
+    const ok: CoderProfile[] = [];
+    const rejected: string[] = [];
+    for (const p of list) {
+      try {
+        ok.push(await validateProfile(JSON.stringify(p)));
+      } catch (e) {
+        rejected.push(String(e));
+      }
+    }
+    for (const p of ok) addProfile(p);
+    if (ok.length === 0 && rejected.length === 0) {
+      toast.push("info", "No profiles in file");
+    } else if (rejected.length === 0) {
+      toast.push("success", `Imported ${ok.length} profile(s)`);
+    } else {
+      toast.push(
+        ok.length ? "info" : "error",
+        `Imported ${ok.length}, rejected ${rejected.length} at the boundary — first reason: ${rejected[0]}`,
+      );
     }
   };
 

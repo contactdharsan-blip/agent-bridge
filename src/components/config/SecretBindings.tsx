@@ -64,6 +64,12 @@ export function SecretBindings({ servers }: { servers: McpServer[] }) {
                   </span>
                 )}
               </span>
+              {!b.resolvable && (
+                <span className="binding-hint">
+                  Export <code>{b.envName}</code> in your shell or add a keychain entry, then
+                  reopen this tab (Doctor checks keychain reachability).
+                </span>
+              )}
             </li>
           ))}
         </ul>

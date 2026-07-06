@@ -27,7 +27,7 @@ import {
 } from "./state/permissionPresets";
 import { PANEL_ENTER, PANEL_EXIT } from "./state/motion";
 import { load, save } from "./state/persist";
-import { applyAccent, type AccentName } from "./state/theme";
+import { applyAccentValue, type AccentValue } from "./state/theme";
 import { useToast } from "./state/toast";
 import type { AgentInfo } from "./types";
 
@@ -123,14 +123,15 @@ export default function App() {
   }, [refreshAgents]);
 
   const connect = async () => {
+    const name = agents.find((a) => a.id === selected)?.displayName ?? selected;
     setConnecting(true);
     setConnectError(null);
     try {
       await stream.connect(selected, cwd.trim());
-      toast.push("success", `Connected to ${selected}`);
+      toast.push("success", `Connected to ${name}`);
     } catch (e) {
       setConnectError(String(e));
-      toast.push("error", `Couldn't connect to ${selected}`);
+      toast.push("error", `Couldn't connect to ${name}`);
     } finally {
       setConnecting(false);
     }
@@ -173,11 +174,13 @@ export default function App() {
     setTourCompleted(true);
   };
 
-  const [accent, setAccent] = useState<AccentName>(() =>
-    load<AccentName>("settings.accent", "emerald"),
+  // Preset name or a custom "#rrggbb" from the color picker — same storage key,
+  // so accents persisted before the picker existed load unchanged.
+  const [accent, setAccent] = useState<AccentValue>(() =>
+    load<AccentValue>("settings.accent", "emerald"),
   );
   useEffect(() => {
-    applyAccent(accent);
+    applyAccentValue(accent);
     save("settings.accent", accent);
   }, [accent]);
 
@@ -185,6 +188,11 @@ export default function App() {
   const [doctorOpen, setDoctorOpen] = useState(false);
 
   const commands = useMemo<Command[]>(() => {
+    const selectedName = agents.find((a) => a.id === selected)?.displayName ?? selected;
+    const needCwd = !cwd.trim() ? "set a working directory first" : undefined;
+    // Presets are per-project — say which project the command will affect
+    // rather than silently keying on an invisible cwd.
+    const presetScope = cwd.trim() ? ` for ${cwd.trim()}` : "";
     const cmds: Command[] = [
       { id: "tab-run", label: "Go to Run", hint: "1", run: () => setTab("run") },
       { id: "tab-config", label: "Go to Config", hint: "2", run: () => setTab("config") },
@@ -196,33 +204,56 @@ export default function App() {
       { id: "continuity-report", label: "Generate a continuity report", run: () => setTab("profile") },
       { id: "replay-tour", label: "Replay walkthrough", run: () => setTourOpen(true) },
       { id: "run-doctor", label: "Run doctor diagnostics", run: () => setDoctorOpen(true) },
+      { id: "recheck-agents", label: "Re-check agent auth", run: () => void refreshAgents() },
     ];
-    if (!connected && selected && cwd.trim()) {
-      cmds.push({ id: "connect", label: `Connect to ${selected}`, run: connect });
+    if (connected) {
+      cmds.push({
+        id: "disconnect",
+        label: `Disconnect from ${stream.agentId ? (agents.find((a) => a.id === stream.agentId)?.displayName ?? stream.agentId) : "the agent"}`,
+        run: stream.disconnect,
+      });
+    } else {
+      cmds.push({
+        id: "connect",
+        label: `Connect to ${selectedName || "an agent"}`,
+        run: connect,
+        disabledReason: !selected ? "no agent available" : needCwd,
+      });
     }
     if (stream.turnActive) {
       cmds.push({ id: "cancel", label: "Cancel current turn", hint: "Esc", run: () => stream.cancel() });
     }
-    if (cwd.trim() && !importing) {
+    cmds.push({
+      id: "import-config",
+      label: "Import existing config",
+      run: () => void importConfig(),
+      disabledReason: importing ? "import in progress…" : needCwd,
+    });
+    if (onboardingDismissed) {
       cmds.push({
-        id: "import-config",
-        label: "Import existing config",
-        run: () => void importConfig(),
+        id: "show-checklist",
+        label: "Show setup checklist",
+        run: () => {
+          setOnboardingDismissed(false);
+          setTab("run");
+        },
       });
     }
     cmds.push({
       id: "preset-default",
-      label: "Set permission preset: Ask every time",
+      label: `Set permission preset: Ask every time${presetScope}`,
       run: () => setPresets((prev) => ({ ...prev, [cwd.trim()]: "default" })),
+      disabledReason: needCwd,
     });
     cmds.push({
       id: "preset-accept-edits",
-      label: "Set permission preset: Auto-accept edits",
+      label: `Set permission preset: Auto-accept edits${presetScope}`,
       run: () => setPresets((prev) => ({ ...prev, [cwd.trim()]: "acceptEdits" })),
+      disabledReason: needCwd,
     });
     return cmds;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected, selected, cwd, stream.turnActive, importing, importConfig, setPresets]);
+  }, [agents, connected, selected, cwd, stream.turnActive, stream.agentId, importing, importConfig, setPresets, onboardingDismissed, refreshAgents]);
 
   // Global shortcuts (UI-FR32): ⌘/Ctrl-K toggles the palette; Esc closes it or
   // cancels an in-flight turn; number keys switch tabs when not typing in a field.

@@ -5,9 +5,12 @@ import { useCanonical } from "../../state/canonical";
 import { load, save } from "../../state/persist";
 import { useToast } from "../../state/toast";
 import type { AgentInfo } from "../../types";
+import { estimateTokens, formatTokens, TOKEN_ESTIMATE_NOTE } from "../../state/tokenEstimate";
+import { AgentLogo } from "../AgentLogo";
 import { Icon } from "../Icon";
 import { PanelEmpty } from "../PanelEmpty";
 import { CarryDiff } from "./CarryDiff";
+import { draftFieldNames, parseSnapshotDraft, SNAPSHOT_DRAFT_PROMPT } from "./draftFromAgent";
 import { EditsEditor, StringListEditor, TaskListEditor } from "./snapshotEditors";
 
 // Handoff Bridge panel (UI-FR16–18). Assemble a snapshot from the live session,
@@ -64,6 +67,13 @@ export function HandoffPanel({
     () => draft.activeMcp ?? store.servers.filter((s) => !s.disabled).map((s) => s.name),
   );
   const [activeSkills, setActiveSkills] = useState<string[]>(draft.activeSkills ?? []);
+
+  // Agent-drafted snapshot state (see runDraft below). `draftAsk` is the
+  // upfront-cost confirm step — the prompt is never sent on the first click.
+  const [draftAsk, setDraftAsk] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const sourceName = agents.find((a) => a.id === source)?.displayName ?? source ?? "the agent";
 
   useEffect(() => {
     save<HandoffDraft>(DRAFT_KEY, {
@@ -127,12 +137,66 @@ export function HandoffPanel({
           : null;
 
   const seedFromThread = () => {
-    const text = stream.messages
+    const full = stream.messages
       .filter((m) => m.role === "assistant")
       .map((m) => m.text)
-      .join("\n\n")
-      .slice(0, 1200);
-    setConversationSummary(text);
+      .join("\n\n");
+    const truncated = full.length > 1200;
+    setConversationSummary(full.slice(0, 1200));
+    // The stream already recorded every resolved edit as a system message —
+    // seed recentEdits from those instead of asking the user to re-type them.
+    const edits = stream.messages
+      .filter((m) => m.role === "system")
+      .map((m) => /^(?:Auto-a|A)pplied edit to (.+?)(?: \(acceptEdits preset\))?$/.exec(m.text)?.[1])
+      .filter((f): f is string => !!f)
+      .map((file) => ({ file, hunkSummary: "edit applied this session" }));
+    if (edits.length > 0 && recentEdits.filter((e) => e.file).length === 0) {
+      setRecentEdits(edits);
+    }
+    toast.push(
+      "info",
+      truncated
+        ? `Seeded the first 1200 characters (thread is longer — trim/edit before switching)${edits.length ? ` and ${edits.length} applied edit(s)` : ""}`
+        : `Seeded the summary from the thread${edits.length ? ` and ${edits.length} applied edit(s)` : ""}`,
+    );
+  };
+
+  // Agent-drafted snapshot: the app prompts the OUTGOING agent, in its live
+  // session over the same `promptCapture` transport the profile run uses, to
+  // draft the snapshot fields. The reply crosses the boundary parser in
+  // draftFromAgent.ts, and the user still reviews/edits everything before the
+  // (unchanged) blocking carry-diff. Because this really sends a prompt, the
+  // cost is stated upfront and the run needs an explicit go.
+  const runDraft = async () => {
+    setDraftAsk(false);
+    setDraftError(null);
+    setDrafting(true);
+    try {
+      const reply = await stream.promptCapture(SNAPSHOT_DRAFT_PROMPT);
+      const parsed = parseSnapshotDraft(reply);
+      const filled = parsed ? draftFieldNames(parsed) : [];
+      if (!parsed || filled.length === 0) {
+        setDraftError(
+          parsed
+            ? "The agent returned an empty draft — fill the snapshot manually."
+            : "The reply contained no usable JSON draft — fill the snapshot manually.",
+        );
+        return;
+      }
+      if (parsed.conversationSummary) setConversationSummary(parsed.conversationSummary);
+      if (parsed.taskList) setTaskList(parsed.taskList);
+      if (parsed.decisions) setDecisions(parsed.decisions);
+      if (parsed.openFiles) setOpenFiles(parsed.openFiles);
+      if (parsed.recentEdits) setRecentEdits(parsed.recentEdits);
+      toast.push(
+        "success",
+        `Draft from ${sourceName} filled ${filled.join(", ")} — review before switching`,
+      );
+    } catch (e) {
+      setDraftError(String(e));
+    } finally {
+      setDrafting(false);
+    }
   };
 
   const doSwitch = async (brief: string) => {
@@ -156,9 +220,53 @@ export function HandoffPanel({
             <Icon name="handoff" /> Assemble the snapshot
           </h3>
           <p className="card-sub">
-            Carrying from <strong>{source}</strong>. Trim or add anything before you switch — this is
-            what gets reconstructed for the next agent.
+            Carrying from{" "}
+            <strong>
+              <AgentLogo id={source ?? ""} /> {sourceName}
+            </strong>
+            . Trim or add anything before you switch — this is what gets reconstructed for the next
+            agent.
           </p>
+
+          <div className="draft-from-agent">
+            <button
+              className="btn btn-sm"
+              onClick={() => setDraftAsk(true)}
+              disabled={drafting || draftAsk || stream.turnActive}
+            >
+              <Icon name="sparkles" />{" "}
+              {drafting ? `Asking ${sourceName}…` : `Draft with ${sourceName}`}
+            </button>
+            {!drafting && !draftAsk && (
+              <span className="token-estimate">
+                asks the live session to draft these fields as JSON
+              </span>
+            )}
+          </div>
+          {draftAsk && (
+            <div className="callout callout-honesty">
+              <Icon name="info" />
+              <span>
+                This sends ≈{formatTokens(estimateTokens(SNAPSHOT_DRAFT_PROMPT))} prompt tokens to{" "}
+                {sourceName} in the live session ({TOKEN_ESTIMATE_NOTE}). The reply is a JSON draft
+                that pre-fills the fields below for your review — nothing goes to the target agent
+                yet.
+                <span className="draft-confirm-actions">
+                  <button className="btn btn-sm btn-primary" onClick={runDraft}>
+                    <Icon name="send" /> Ask {sourceName}
+                  </button>
+                  <button className="btn btn-sm" onClick={() => setDraftAsk(false)}>
+                    Cancel
+                  </button>
+                </span>
+              </span>
+            </div>
+          )}
+          {draftError && (
+            <div className="callout callout-error">
+              <Icon name="x" /> Draft failed: {draftError}
+            </div>
+          )}
 
           <div className="handoff-target-row" data-tour-step="handoff-target-row">
             <label className="field-inline">

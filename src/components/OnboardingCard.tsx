@@ -133,7 +133,9 @@ export function OnboardingCard({
         </Step>
 
         <Step done={hasProfile} label="Run your first profile">
-          <button className="btn btn-sm" onClick={onGoProfile} disabled={!connected}>
+          {/* Not gated on `connected` — the Profile tab explicitly supports the
+              no-session paste-a-CoderProfile-JSON path. */}
+          <button className="btn btn-sm" onClick={onGoProfile}>
             <Icon name="arrowRight" /> Open Profile
           </button>
         </Step>

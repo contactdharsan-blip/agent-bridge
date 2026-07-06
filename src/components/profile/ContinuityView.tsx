@@ -1,5 +1,6 @@
 import type { Agent, ContinuityReport, GapFill } from "../../engineTypes";
 import type { AsyncState } from "../config/hooks";
+import { agentLabel } from "../config/targets";
 import { Icon } from "../Icon";
 import { GapFillItem } from "./GapFillItem";
 
@@ -23,7 +24,7 @@ export function ContinuityView({
     <div className="glass-card continuity-view">
       <div className="continuity-head">
         <h3 className="card-title">
-          <Icon name="handoff" /> Workflow continuity → {target}
+          <Icon name="handoff" /> Workflow continuity → {agentLabel(target)}
         </h3>
         <div className="target-selector" role="group" aria-label="Continuity target">
           {TARGETS.map((t) => (
@@ -33,7 +34,7 @@ export function ContinuityView({
               className={`seg ${target === t ? "seg-active" : ""}`}
               onClick={() => onTarget(t)}
             >
-              {t}
+              {agentLabel(t)}
             </button>
           ))}
         </div>

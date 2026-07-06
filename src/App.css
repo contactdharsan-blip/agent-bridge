@@ -1237,6 +1237,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+  flex-wrap: wrap; /* lets .binding-hint drop to its own full-width line */
 }
 .secret-ref {
   font-family: "JetBrains Mono", monospace;
@@ -1656,6 +1657,22 @@ body {
   background: rgba(var(--theme-primary-rgb), 0.14);
   color: var(--theme-primary-light);
 }
+/* Listed but inert: an absent command is undiscoverable, a disabled one
+   teaches — the reason renders where the hint would. */
+.palette-item-disabled {
+  cursor: default;
+  color: var(--color-text-tertiary);
+}
+.palette-item-disabled.palette-item-active {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text-tertiary);
+}
+.palette-reason {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  margin-left: var(--space-3);
+}
 .palette-empty {
   padding: var(--space-3) var(--space-3);
   color: var(--color-text-tertiary);
@@ -1926,6 +1943,13 @@ body {
   gap: var(--space-2);
 }
 
+.profile-run-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .collected-list {
   list-style: none;
   margin: var(--space-1) 0 0;
@@ -1939,6 +1963,14 @@ body {
   align-items: center;
   gap: var(--space-2);
 }
+/* Remediation line under an unresolved secret binding — a dead-end badge
+   becomes a pointer at the fix. */
+.binding-hint {
+  flex-basis: 100%;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
 .collected-vol {
   flex: 1;
   font-size: var(--text-xs);
@@ -2217,6 +2249,83 @@ body {
     opacity: 1;
     transform: scale(1);
   }
+}
+
+/* ---- v1.6: color picker, agent logos, token honesty, agent-drafted snapshot - */
+
+/* The three preset dots keep their radiogroup in a sub-container so the custom
+   color input can sit beside them without joining the radio semantics. */
+.accent-presets {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+/* Native <input type="color"> styled to match the preset dots — the swatch IS
+   the current custom pick, so the control doubles as its own preview. */
+.accent-custom {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0.22rem;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: transform var(--transition-spring), opacity var(--transition-fast);
+}
+.accent-custom::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.accent-custom::-webkit-color-swatch {
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.accent-custom:hover {
+  opacity: 1;
+}
+.accent-custom.accent-dot-active {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* Upfront token-cost line (NFR2): dim, small, always phrased as an estimate. */
+.token-estimate {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+}
+
+/* Composer wrapper: the row keeps its layout, the estimate docks below it. */
+.prompt-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Agent-drafted snapshot controls (Handoff tab). */
+.draft-from-agent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+.draft-from-agent .token-estimate {
+  margin: 0;
+}
+.draft-confirm-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Per-agent marks: tinted with the accent so they read as identity, not state
+   (every status signal keeps its own icon + text — UI-NFR6). */
+.agent-logo {
+  color: var(--theme-primary);
+  flex-shrink: 0;
 }
 
 /* Reduced-motion & perf gate (DESIGN §5.4): honor the OS setting — animations

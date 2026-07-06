@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { buildHandoffBrief } from "../../engines";
 import type { ContextSnapshot } from "../../engineTypes";
 import { FADE } from "../../state/motion";
+import { estimateTokens, formatTokens, TOKEN_ESTIMATE_NOTE } from "../../state/tokenEstimate";
 import { Icon } from "../Icon";
 
 // The pre-switch carry-diff (UI-FR16/17) — a BLOCKING honesty gate. What carries is
@@ -140,6 +141,12 @@ export function CarryDiff({
             </span>
           </div>
           <pre className="code-preview brief-preview">{brief}</pre>
+
+          {/* What sending this brief costs, before the switch fires — the new
+              session's opening turn is exactly this text. */}
+          <p className="token-estimate" title={TOKEN_ESTIMATE_NOTE}>
+            sending this brief ≈{formatTokens(estimateTokens(brief))} tokens · {TOKEN_ESTIMATE_NOTE}
+          </p>
 
           <label className="carry-ack">
             <input type="checkbox" checked={acked} onChange={(e) => setAcked(e.target.checked)} />

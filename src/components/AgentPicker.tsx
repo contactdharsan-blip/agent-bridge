@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import type { PermissionPreset } from "../state/permissionPresets";
 import type { AgentInfo } from "../types";
+import { AgentLogo } from "./AgentLogo";
 import { AuthBadge } from "./AuthBadge";
 import { Icon } from "./Icon";
 import { PermissionPresetSelector } from "./PermissionPresetSelector";
@@ -62,7 +63,7 @@ export function AgentPicker({
       <div className="agent-status-strip">
         {agents.map((a) => (
           <span key={a.id} className="agent-chip">
-            <Icon name="cpu" />
+            <AgentLogo id={a.id} />
             <span className="agent-chip-name">{a.displayName}</span>
             <AuthBadge status={a.authStatus} env={a.authEnv} />
           </span>

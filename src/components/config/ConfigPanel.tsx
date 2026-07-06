@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Target } from "../../engineTypes";
 import { useCanonical } from "../../state/canonical";
+import { load, save } from "../../state/persist";
 import { Icon } from "../Icon";
 import { DriftWrite } from "./DriftWrite";
 import { useInstructionsPreview, useMcpPreview } from "./hooks";
@@ -20,7 +21,13 @@ const TARGETS: { id: Target; label: string }[] = [
 
 export function ConfigPanel({ cwd }: { cwd: string }) {
   const store = useCanonical();
-  const [target, setTarget] = useState<Target>("claude");
+  // Persisted: the panel unmounts on every tab switch, and a Codex/Cursor user
+  // shouldn't re-pick their target every visit.
+  const [target, setTargetState] = useState<Target>(() => load<Target>("settings.configTarget", "claude"));
+  const setTarget = (t: Target) => {
+    setTargetState(t);
+    save("settings.configTarget", t);
+  };
 
   const mcp = useMcpPreview(target, store.servers);
   const instructions = useInstructionsPreview(target, store.instructions);

@@ -3,6 +3,8 @@ import { validateProfile } from "../../engines";
 import type { CoderProfile } from "../../engineTypes";
 import type { AgentStream } from "../../hooks/useAgentStream";
 import { useToast } from "../../state/toast";
+import { estimateTokens, formatTokens, TOKEN_ESTIMATE_NOTE } from "../../state/tokenEstimate";
+import { agentLabel } from "../config/targets";
 import { Icon } from "../Icon";
 import { extractJson, PROFILE_PROMPT } from "./profileRun";
 
@@ -45,7 +47,7 @@ export function ProfileCollector({
       setReason("schema");
       const profile = await validateProfile(json);
       onAdd(profile);
-      toast.push("success", `Validated ${profile.agent} profile`);
+      toast.push("success", `Validated ${agentLabel(profile.agent)} profile`);
     } catch (e) {
       setError(String(e));
       toast.push("error", "Profile rejected at the boundary");
@@ -63,7 +65,7 @@ export function ProfileCollector({
       const profile = await validateProfile(paste);
       onAdd(profile);
       setPaste("");
-      toast.push("success", `Validated ${profile.agent} profile`);
+      toast.push("success", `Validated ${agentLabel(profile.agent)} profile`);
     } catch (e) {
       setError(String(e));
       toast.push("error", "Profile rejected at the boundary");
@@ -83,9 +85,31 @@ export function ProfileCollector({
       </p>
 
       {stream.session ? (
-        <button className="btn btn-sm btn-primary" onClick={runInSession} disabled={running || stream.turnActive}>
-          <Icon name="sparkles" /> {running ? "Running in session…" : `Run profile in ${stream.agentId}`}
-        </button>
+        <div className="profile-run-row">
+          <button className="btn btn-sm btn-primary" onClick={runInSession} disabled={running || stream.turnActive}>
+            <Icon name="sparkles" />{" "}
+            {running ? "Running in session…" : `Run profile in ${agentLabel(stream.agentId ?? "")}`}
+          </button>
+          {running && (
+            <>
+              <button className="btn btn-sm btn-ghost" onClick={() => void stream.cancel()}>
+                <Icon name="stop" /> Cancel
+              </button>
+              <span className="card-sub">Streams live in the Run tab.</span>
+            </>
+          )}
+          {/* Upfront cost: the invoking prompt is small and known, but the
+              skill then reads local history *inside* the session — the agent's
+              own usage scales with that history and can't be known here. Say
+              both, don't imply the small number is the whole cost. */}
+          {!running && (
+            <p className="token-estimate" title={TOKEN_ESTIMATE_NOTE}>
+              sends ≈{formatTokens(estimateTokens(PROFILE_PROMPT))} prompt tokens ·{" "}
+              {TOKEN_ESTIMATE_NOTE}; the skill then reads local history in-session, so the agent's
+              own usage will be larger
+            </p>
+          )}
+        </div>
       ) : (
         <div className="callout">
           <Icon name="info" /> Connect an agent in the Run tab to profile it live, or paste its JSON
@@ -125,7 +149,7 @@ export function ProfileCollector({
           {collected.map((p) => (
             <li key={p.agent} className="collected-item">
               <span className="badge badge-accent">
-                <Icon name="check" /> {p.agent}
+                <Icon name="check" /> {agentLabel(p.agent)}
               </span>
               <span className="collected-vol">
                 {plural(p.data.messagesAnalyzed, "msg")} · {plural(p.data.sessionsAnalyzed, "session")}{" "}

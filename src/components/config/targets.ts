@@ -20,3 +20,15 @@ export const INSTRUCTIONS_FILE: Record<Target, string> = {
   codex: "AGENTS.md",
   cursor: ".cursorrules",
 };
+
+// Display names for the fixed engine targets. Raw registry ids ("codex") were
+// leaking into user-facing copy in some panels while others said "Codex" —
+// one entity, one name, everywhere (falls back to the id for unknown agents).
+const AGENT_LABEL: Record<string, string> = {
+  claude: "Claude",
+  codex: "Codex",
+  cursor: "Cursor",
+};
+export function agentLabel(id: string): string {
+  return AGENT_LABEL[id] ?? id;
+}
